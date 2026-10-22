@@ -31,7 +31,14 @@ yarn-error.*
 *.pem
 
 # local env files
-.env*.local
+.env
+.env.*
+!.env.example
+
+# local tooling / editor settings
+.claude/
+.vscode/
+.idea/
 
 # typescript
 *.tsbuildinfo
