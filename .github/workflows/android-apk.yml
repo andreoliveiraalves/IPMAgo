@@ -1,5 +1,8 @@
 name: Android APK
 
+# Builds a release APK with Gradle and attaches it to a GitHub Release.
+# Trigger: push a v* tag, or run manually from the Actions tab.
+
 on:
   push:
     tags:
