@@ -35,7 +35,11 @@ export function LocationCard({ location, entry, distanceKm, onPress, onLongPress
       onPress={onPress}
       onLongPress={onLongPress}
       style={({ pressed }) => [pressed && styles.pressed]}>
-      <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+        ]}>
         <View style={styles.header}>
           <View style={styles.headerText}>
             <ThemedText type="smallBold" numberOfLines={1}>
@@ -68,7 +72,7 @@ export function LocationCard({ location, entry, distanceKm, onPress, onLongPress
                 <ThemedText type="small" themeColor="textSecondary">
                   {t('max')}
                 </ThemedText>
-                <ThemedText type="subtitle" style={styles.temperature}>
+                <ThemedText type="subtitle" themeColor="primary" style={styles.temperature}>
                   {formatTemp(day.maxTemp)}
                 </ThemedText>
               </View>
@@ -117,6 +121,7 @@ export function LocationCard({ location, entry, distanceKm, onPress, onLongPress
 const styles = StyleSheet.create({
   card: {
     borderRadius: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.three,
     gap: Spacing.two,
   },

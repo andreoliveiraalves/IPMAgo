@@ -2,8 +2,8 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
+  SectionList,
   StyleSheet,
   TextInput,
   View,
@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { IpmaLocation } from '@/api/ipma/types';
+import { AppIcon } from '@/components/app-icon';
 import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -18,6 +19,8 @@ import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useLocations } from '@/hooks/use-locations';
 import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/i18n';
+import { districtName } from '@/lib/districts';
+import { AppIcons } from '@/lib/weather';
 import { useFavorites } from '@/state/favorites';
 
 function normalize(value: string): string {
@@ -27,6 +30,12 @@ function normalize(value: string): string {
     .toLowerCase()
     .trim();
 }
+
+type Section = {
+  districtId: number;
+  title: string;
+  data: IpmaLocation[];
+};
 
 type RowProps = {
   location: IpmaLocation;
@@ -57,13 +66,11 @@ function LocationRow({ location, isFavorite, onPress, onToggle }: RowProps) {
         hitSlop={12}
         onPress={onToggle}
         style={styles.star}>
-        <ThemedText
-          style={[
-            styles.starGlyph,
-            { color: isFavorite ? theme.text : theme.textSecondary },
-          ]}>
-          {isFavorite ? '★' : '☆'}
-        </ThemedText>
+        <AppIcon
+          name={isFavorite ? AppIcons.starFilled : AppIcons.star}
+          size={22}
+          color={isFavorite ? theme.accent : theme.textSecondary}
+        />
       </Pressable>
     </Pressable>
   );
@@ -72,49 +79,82 @@ function LocationRow({ location, isFavorite, onPress, onToggle }: RowProps) {
 export default function ExploreScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { locations, isLoading, error, refresh } = useLocations();
   const { isFavorite, toggle } = useFavorites();
   const [query, setQuery] = useState('');
 
-  const filtered = useMemo(() => {
+  const sections = useMemo<Section[]>(() => {
     const needle = normalize(query);
+    const groups = new Map<number, IpmaLocation[]>();
 
-    if (!needle) {
-      return locations;
+    for (const location of locations) {
+      const district = districtName(location.idDistrito, language);
+
+      if (
+        needle &&
+        !normalize(location.local).includes(needle) &&
+        !normalize(district).includes(needle)
+      ) {
+        continue;
+      }
+
+      const group = groups.get(location.idDistrito);
+      if (group) {
+        group.push(location);
+      } else {
+        groups.set(location.idDistrito, [location]);
+      }
     }
 
-    return locations.filter((location) => normalize(location.local).includes(needle));
-  }, [locations, query]);
+    return [...groups.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([districtId, data]) => ({
+        districtId,
+        title: districtName(districtId, language),
+        data,
+      }));
+  }, [locations, query, language]);
+
+  const resultCount = useMemo(
+    () => sections.reduce((total, section) => total + section.data.length, 0),
+    [sections]
+  );
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.inner}>
           <View style={styles.header}>
-            <ThemedText type="subtitle">{t('tabLocations')}</ThemedText>
+            <ThemedText type="subtitle" themeColor="primary">
+              {t('tabLocations')}
+            </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              {filtered.length}
+              {resultCount}
             </ThemedText>
           </View>
 
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder={t('searchPlaceholder')}
-            placeholderTextColor={theme.textSecondary}
-            autoCorrect={false}
-            autoCapitalize="none"
-            returnKeyType="search"
+          <View
             style={[
-              styles.search,
-              { backgroundColor: theme.backgroundElement, color: theme.text },
-            ]}
-          />
+              styles.searchBox,
+              { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+            ]}>
+            <AppIcon name={AppIcons.search} size={20} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder={t('searchPlaceholder')}
+              placeholderTextColor={theme.textSecondary}
+              autoCorrect={false}
+              autoCapitalize="none"
+              returnKeyType="search"
+              style={[styles.search, { color: theme.text }]}
+            />
+          </View>
 
           {isLoading && locations.length === 0 ? (
             <View style={styles.loadingRow}>
-              <ActivityIndicator color={theme.textSecondary} />
+              <ActivityIndicator color={theme.primary} />
               <ThemedText type="small" themeColor="textSecondary">
                 {t('loading')}
               </ThemedText>
@@ -123,7 +163,7 @@ export default function ExploreScreen() {
 
           {!isLoading && locations.length === 0 ? (
             <EmptyState
-              emoji="📡"
+              icon={AppIcons.cloudOff}
               title={t('loadError')}
               description={error ?? t('noData')}
               actionLabel={t('retry')}
@@ -133,12 +173,23 @@ export default function ExploreScreen() {
             />
           ) : null}
 
-          <FlatList
-            data={filtered}
+          <SectionList
+            sections={sections}
             keyExtractor={(item) => String(item.globalIdLocal)}
             keyboardShouldPersistTaps="handled"
+            stickySectionHeadersEnabled={false}
             ItemSeparatorComponent={() => (
-              <View style={[styles.separator, { backgroundColor: theme.backgroundElement }]} />
+              <View style={[styles.separator, { backgroundColor: theme.border }]} />
+            )}
+            renderSectionHeader={({ section }) => (
+              <View style={[styles.sectionHeader, { backgroundColor: theme.background }]}>
+                <ThemedText type="smallBold" themeColor="primary" style={styles.sectionTitle}>
+                  {section.title.toUpperCase()}
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {section.data.length}
+                </ThemedText>
+              </View>
             )}
             ListEmptyComponent={
               locations.length > 0 ? (
@@ -191,15 +242,33 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.two,
   },
-  search: {
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
     borderRadius: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
+  },
+  search: {
+    flex: 1,
+    paddingVertical: Spacing.two + 2,
     fontSize: 16,
     lineHeight: 22,
   },
   listContent: {
     paddingBottom: Spacing.four,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.one,
+  },
+  sectionTitle: {
+    letterSpacing: 0.6,
   },
   row: {
     flexDirection: 'row',
@@ -212,10 +281,6 @@ const styles = StyleSheet.create({
   },
   star: {
     paddingHorizontal: Spacing.one,
-  },
-  starGlyph: {
-    fontSize: 22,
-    lineHeight: 28,
   },
   separator: {
     height: StyleSheet.hairlineWidth,

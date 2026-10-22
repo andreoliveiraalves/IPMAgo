@@ -12,8 +12,13 @@ export default function AppTabs() {
   return (
     <NativeTabs
       backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
+      indicatorColor={colors.backgroundSelected}
+      tintColor={colors.primary}
+      iconColor={{ default: colors.textSecondary, selected: colors.primary }}
+      labelStyle={{
+        default: { color: colors.textSecondary },
+        selected: { color: colors.primary },
+      }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>{t('tabForecast')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon

@@ -1,4 +1,6 @@
-const BASE_URL = 'https://api.ipma.pt/open-data';
+export const OPEN_DATA_BASE = 'https://api.ipma.pt/open-data';
+export const PUBLIC_DATA_BASE = 'https://api.ipma.pt/public-data';
+
 const DEFAULT_TIMEOUT_MS = 8000;
 
 export type IpmaErrorKind = 'network' | 'http' | 'payload';
@@ -21,10 +23,14 @@ type RequestOptions = {
 };
 
 /**
- * Fetches JSON from the IPMA open-data API with a timeout and normalized errors.
- * The API is public (no key) and sends `Access-Control-Allow-Origin: *`.
+ * Fetches JSON from an IPMA API with a timeout and normalized errors.
+ * Both APIs are public (no key) and send `Access-Control-Allow-Origin: *`.
  */
-export async function requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function requestJson<T>(
+  baseUrl: string,
+  path: string,
+  options: RequestOptions = {}
+): Promise<T> {
   const { timeoutMs = DEFAULT_TIMEOUT_MS, signal } = options;
 
   const controller = new AbortController();
@@ -33,7 +39,7 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
   signal?.addEventListener('abort', abort);
 
   try {
-    const response = await fetch(`${BASE_URL}${path}`, {
+    const response = await fetch(`${baseUrl}${path}`, {
       signal: controller.signal,
       headers: { Accept: 'application/json' },
     });

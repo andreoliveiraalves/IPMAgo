@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { IpmaLocation } from '@/api/ipma/types';
 import { EmptyState } from '@/components/empty-state';
+import { AppIcon } from '@/components/app-icon';
 import { LanguageToggle } from '@/components/language-toggle';
 import { LocationCard } from '@/components/location-card';
 import { ThemedText } from '@/components/themed-text';
@@ -24,6 +25,7 @@ import { useNearestLocation } from '@/hooks/use-nearest-location';
 import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/i18n';
 import { describeAge } from '@/lib/dates';
+import { AppIcons } from '@/lib/weather';
 import { useFavorites } from '@/state/favorites';
 
 export default function FavoritesScreen() {
@@ -56,7 +58,7 @@ export default function FavoritesScreen() {
 
   const latestFetch = useMemo(() => {
     const timestamps = Object.values(entries)
-      .map((entry) => entry.bundle?.fetchedAt)
+      .map((entry) => entry.bundle?.updatedAt)
       .filter((value): value is number => typeof value === 'number');
 
     return timestamps.length > 0 ? Math.max(...timestamps) : null;
@@ -99,10 +101,10 @@ export default function FavoritesScreen() {
         disabled={status === 'locating'}
         style={({ pressed }) => [
           styles.locationPrompt,
-          { backgroundColor: theme.backgroundElement },
+          { backgroundColor: theme.backgroundElement, borderColor: theme.border },
           pressed && styles.pressed,
         ]}>
-        <ThemedText style={styles.promptEmoji}>📍</ThemedText>
+        <AppIcon name={AppIcons.location} size={24} themeColor="accent" />
         <View style={styles.promptText}>
           <ThemedText type="smallBold">
             {status === 'locating'
@@ -135,19 +137,21 @@ export default function FavoritesScreen() {
               onRefresh={() => {
                 void refresh();
               }}
-              tintColor={theme.textSecondary}
+              tintColor={theme.primary}
             />
           }>
           <View style={styles.inner}>
             <View style={styles.header}>
-              <ThemedText type="subtitle">{t('appName')}</ThemedText>
+              <ThemedText type="subtitle" themeColor="primary">
+                {t('appName')}
+              </ThemedText>
               <LanguageToggle />
             </View>
 
             {match !== null ? (
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                  <ThemedText type="smallBold" themeColor="textSecondary">
+                  <ThemedText type="smallBold" themeColor="primary">
                     {t('myLocation').toUpperCase()}
                   </ThemedText>
                 </View>
@@ -164,7 +168,7 @@ export default function FavoritesScreen() {
 
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <ThemedText type="smallBold" themeColor="textSecondary">
+                <ThemedText type="smallBold" themeColor="primary">
                   {t('favorites').toUpperCase()}
                 </ThemedText>
                 <Pressable
@@ -198,7 +202,7 @@ export default function FavoritesScreen() {
                 </View>
               ) : (
                 <EmptyState
-                  emoji="⭐"
+                  icon={AppIcons.star}
                   title={t('noFavorites')}
                   description={t('noFavoritesHint')}
                   actionLabel={t('browseLocations')}
@@ -268,10 +272,7 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     padding: Spacing.three,
     borderRadius: Spacing.three,
-  },
-  promptEmoji: {
-    fontSize: 24,
-    lineHeight: 30,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   promptText: {
     flex: 1,

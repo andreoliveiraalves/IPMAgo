@@ -1,26 +1,27 @@
-import { StyleSheet, Text } from 'react-native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
-import { weatherEmoji } from '@/lib/weather';
+import { useTheme } from '@/hooks/use-theme';
+import { weatherGlyph, weatherToneColor } from '@/lib/weather';
 
 type Props = {
   weatherTypeId: number;
   size?: number;
   label?: string;
+  color?: string;
 };
 
-export function WeatherIcon({ weatherTypeId, size = 32, label }: Props) {
+export function WeatherIcon({ weatherTypeId, size = 32, label, color }: Props) {
+  const theme = useTheme();
+  const glyph = weatherGlyph(weatherTypeId);
+
   return (
-    <Text
+    <MaterialCommunityIcons
+      name={glyph.name}
+      size={size}
+      color={color ?? theme[weatherToneColor(glyph.tone)]}
       accessibilityLabel={label}
       accessibilityElementsHidden={!label}
-      style={[styles.icon, { fontSize: size, lineHeight: size * 1.2 }]}>
-      {weatherEmoji(weatherTypeId)}
-    </Text>
+      importantForAccessibility={label ? 'yes' : 'no-hide-descendants'}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  icon: {
-    textAlign: 'center',
-  },
-});

@@ -11,6 +11,7 @@ import {
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/i18n';
 
 import { LanguageToggle } from './language-toggle';
@@ -38,6 +39,8 @@ export default function AppTabs() {
 }
 
 export function TabButton({ children, isFocused, ref, ...props }: TabTriggerSlotProps) {
+  const theme = useTheme();
+
   return (
     <Pressable
       {...props}
@@ -48,8 +51,8 @@ export function TabButton({ children, isFocused, ref, ...props }: TabTriggerSlot
       style={({ pressed }) => pressed && styles.pressed}>
       <ThemedView
         type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
-        style={styles.tabButtonView}>
-        <ThemedText type="small" themeColor={isFocused ? 'text' : 'textSecondary'}>
+        style={[styles.tabButtonView, { borderColor: theme.border }]}>
+        <ThemedText type="small" themeColor={isFocused ? 'primary' : 'textSecondary'}>
           {children}
         </ThemedText>
       </ThemedView>
@@ -63,7 +66,7 @@ export function CustomTabList(props: TabListProps) {
   return (
     <View {...props} style={styles.tabListContainer}>
       <ThemedView type="backgroundElement" style={styles.innerContainer}>
-        <ThemedText type="smallBold" style={styles.brandText}>
+        <ThemedText type="smallBold" themeColor="primary" style={styles.brandText}>
           {t('appName')}
         </ThemedText>
 
@@ -106,6 +109,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   trailing: {
     marginLeft: Spacing.three,

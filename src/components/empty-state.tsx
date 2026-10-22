@@ -1,22 +1,33 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Spacing } from '@/constants/theme';
+import { Spacing, type ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { AppIcons, type AppIconName } from '@/lib/weather';
+
+import { AppIcon } from './app-icon';
 
 type Props = {
   title: string;
   description: string;
-  emoji?: string;
+  icon?: AppIconName;
+  iconColor?: ThemeColor;
   actionLabel?: string;
   onAction?: () => void;
 };
 
-export function EmptyState({ title, description, emoji = '📍', actionLabel, onAction }: Props) {
+export function EmptyState({
+  title,
+  description,
+  icon = AppIcons.locationOff,
+  iconColor = 'primary',
+  actionLabel,
+  onAction,
+}: Props) {
   const theme = useTheme();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.emoji}>{emoji}</Text>
+      <AppIcon name={icon} size={40} themeColor={iconColor} />
       <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
       <Text style={[styles.description, { color: theme.textSecondary }]}>{description}</Text>
 
@@ -26,10 +37,10 @@ export function EmptyState({ title, description, emoji = '📍', actionLabel, on
           onPress={onAction}
           style={({ pressed }) => [
             styles.action,
-            { backgroundColor: theme.backgroundSelected },
+            { backgroundColor: theme.primary },
             pressed && styles.pressed,
           ]}>
-          <Text style={[styles.actionLabel, { color: theme.text }]}>{actionLabel}</Text>
+          <Text style={[styles.actionLabel, { color: theme.onPrimary }]}>{actionLabel}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -42,10 +53,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.five,
     gap: Spacing.two,
-  },
-  emoji: {
-    fontSize: 40,
-    lineHeight: 48,
   },
   title: {
     fontSize: 18,
@@ -60,7 +67,7 @@ const styles = StyleSheet.create({
   },
   action: {
     marginTop: Spacing.two,
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     borderRadius: 999,
   },

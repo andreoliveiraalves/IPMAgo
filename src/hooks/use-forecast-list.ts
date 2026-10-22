@@ -68,12 +68,11 @@ export function useForecastList(ids: number[]): ForecastListState {
       update(id, { isLoading: true });
 
       try {
-        const days = await fetchForecast(id);
+        const bundle = await fetchForecast(id);
         if (!alive.current) {
           return;
         }
 
-        const bundle: ForecastBundle = { globalIdLocal: id, days, fetchedAt: Date.now() };
         update(id, { bundle, isLoading: false, error: null });
         void writeJson(storageKeys.forecast(id), bundle);
       } catch (err) {

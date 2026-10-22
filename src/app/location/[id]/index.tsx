@@ -1,14 +1,14 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 
+import { AppIcon } from '@/components/app-icon';
 import { EmptyState } from '@/components/empty-state';
 import { ForecastDayRow } from '@/components/forecast-day-row';
 import { ThemedText } from '@/components/themed-text';
@@ -21,11 +21,13 @@ import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/i18n';
 import { describeAge } from '@/lib/dates';
 import { formatRain, formatTemp, pickCurrentDay } from '@/lib/forecast';
+import { AppIcons } from '@/lib/weather';
 import { useFavorites } from '@/state/favorites';
 import { useReferenceData } from '@/state/reference-data';
 
 export default function LocationDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const globalIdLocal = Number(id);
   const isValid = Number.isFinite(globalIdLocal);
 
@@ -41,7 +43,7 @@ export default function LocationDetailScreen() {
   const current = pickCurrentDay(days);
   const favorite = isValid && isFavorite(globalIdLocal);
 
-  const age = entry.bundle ? describeAge(entry.bundle.fetchedAt) : null;
+  const age = entry.bundle ? describeAge(entry.bundle.updatedAt) : null;
   const ageLabel =
     age === null
       ? null
@@ -50,6 +52,17 @@ export default function LocationDetailScreen() {
         : age.unit === 'minutes'
           ? t('updatedMinutes', { count: age.value })
           : t('updatedHours', { count: age.value });
+
+  const openDay = (date: string) => {
+    if (!isValid) {
+      return;
+    }
+
+    router.push({
+      pathname: '/location/[id]/day/[date]',
+      params: { id: String(globalIdLocal), date },
+    });
+  };
 
   return (
     <>
@@ -66,9 +79,11 @@ export default function LocationDetailScreen() {
                     accessibilityState={{ selected: favorite }}
                     hitSlop={12}
                     onPress={() => toggle(globalIdLocal)}>
-                    <Text style={[styles.star, { color: theme.text }]}>
-                      {favorite ? '★' : '☆'}
-                    </Text>
+                    <AppIcon
+                      name={favorite ? AppIcons.starFilled : AppIcons.star}
+                      size={24}
+                      color={favorite ? theme.accent : theme.text}
+                    />
                   </Pressable>
                 )
               : undefined,
@@ -84,63 +99,79 @@ export default function LocationDetailScreen() {
               onRefresh={() => {
                 void refresh();
               }}
-              tintColor={theme.textSecondary}
+              tintColor={theme.primary}
             />
           }>
           <View style={styles.inner}>
             {current ? (
-              <View style={[styles.hero, { backgroundColor: theme.backgroundElement }]}>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t('today')}
-                </ThemedText>
-
-                <View style={styles.heroMain}>
-                  <WeatherIcon
-                    weatherTypeId={current.weatherTypeId}
-                    size={64}
-                    label={weatherLabel(current.weatherTypeId)}
-                  />
-                  <View style={styles.heroTemps}>
-                    <ThemedText type="title" style={styles.heroMax}>
-                      {formatTemp(current.maxTemp)}
-                    </ThemedText>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityHint={t('dayDetailHint')}
+                onPress={() => openDay(current.date)}
+                style={({ pressed }) => pressed && styles.pressed}>
+                <View
+                  style={[
+                    styles.hero,
+                    {
+                      backgroundColor: theme.backgroundSelected,
+                      borderColor: theme.border,
+                    },
+                  ]}>
+                  <View style={styles.heroTop}>
                     <ThemedText type="small" themeColor="textSecondary">
-                      {t('min')} {formatTemp(current.minTemp)}
+                      {t('today')}
                     </ThemedText>
+                    <AppIcon name={AppIcons.chevronRight} size={20} themeColor="primary" />
+                  </View>
+
+                  <View style={styles.heroMain}>
+                    <WeatherIcon
+                      weatherTypeId={current.weatherTypeId}
+                      size={64}
+                      label={weatherLabel(current.weatherTypeId)}
+                    />
+                    <View style={styles.heroTemps}>
+                      <ThemedText type="title" themeColor="primary" style={styles.heroMax}>
+                        {formatTemp(current.maxTemp)}
+                      </ThemedText>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {t('min')} {formatTemp(current.minTemp)}
+                      </ThemedText>
+                    </View>
+                  </View>
+
+                  <ThemedText>{weatherLabel(current.weatherTypeId)}</ThemedText>
+
+                  <View style={styles.heroMetrics}>
+                    <View style={styles.metric}>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {t('rain')}
+                      </ThemedText>
+                      <ThemedText type="smallBold">
+                        {formatRain(current.rainProbability)}
+                      </ThemedText>
+                    </View>
+                    <View style={styles.metric}>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {t('wind')}
+                      </ThemedText>
+                      <ThemedText type="smallBold">
+                        {current.windDirection} · {windLabel(current.windClass)}
+                      </ThemedText>
+                    </View>
                   </View>
                 </View>
-
-                <ThemedText>{weatherLabel(current.weatherTypeId)}</ThemedText>
-
-                <View style={styles.heroMetrics}>
-                  <View style={styles.metric}>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {t('rain')}
-                    </ThemedText>
-                    <ThemedText type="smallBold">
-                      {formatRain(current.rainProbability)}
-                    </ThemedText>
-                  </View>
-                  <View style={styles.metric}>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {t('wind')}
-                    </ThemedText>
-                    <ThemedText type="smallBold">
-                      {current.windDirection} · {windLabel(current.windClass)}
-                    </ThemedText>
-                  </View>
-                </View>
-              </View>
+              </Pressable>
             ) : entry.isLoading ? (
               <View style={styles.loadingRow}>
-                <ActivityIndicator color={theme.textSecondary} />
+                <ActivityIndicator color={theme.primary} />
                 <ThemedText type="small" themeColor="textSecondary">
                   {t('loading')}
                 </ThemedText>
               </View>
             ) : (
               <EmptyState
-                emoji="📡"
+                icon={AppIcons.cloudOff}
                 title={t('loadError')}
                 description={entry.error ?? t('noData')}
                 actionLabel={t('retry')}
@@ -152,22 +183,24 @@ export default function LocationDetailScreen() {
 
             {days.length > 0 ? (
               <View style={styles.section}>
-                <ThemedText type="smallBold" themeColor="textSecondary">
+                <ThemedText type="smallBold" themeColor="primary">
                   {t('nextDays').toUpperCase()}
                 </ThemedText>
 
-                <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+                <View
+                  style={[
+                    styles.card,
+                    {
+                      backgroundColor: theme.backgroundElement,
+                      borderColor: theme.border,
+                    },
+                  ]}>
                   {days.map((day, index) => (
                     <View key={day.date}>
                       {index > 0 ? (
-                        <View
-                          style={[
-                            styles.separator,
-                            { backgroundColor: theme.backgroundSelected },
-                          ]}
-                        />
+                        <View style={[styles.separator, { backgroundColor: theme.border }]} />
                       ) : null}
-                      <ForecastDayRow day={day} />
+                      <ForecastDayRow day={day} onPress={() => openDay(day.date)} />
                     </View>
                   ))}
                 </View>
@@ -208,13 +241,16 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
     paddingTop: Spacing.three,
   },
-  star: {
-    fontSize: 22,
-    lineHeight: 28,
-  },
   hero: {
     borderRadius: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.four,
+    gap: Spacing.two,
+  },
+  heroTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: Spacing.two,
   },
   heroMain: {
@@ -241,6 +277,7 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.three,
   },
   separator: {
@@ -254,5 +291,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     textAlign: 'center',
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });

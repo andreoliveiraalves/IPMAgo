@@ -5,9 +5,14 @@ const PREFIX = 'ipmago';
 export const storageKeys = {
   favorites: `${PREFIX}:favorites:v1`,
   language: `${PREFIX}:language:v1`,
-  locations: `${PREFIX}:locations:v1`,
+  /** v2: the list grew from 35 to 423 locations. */
+  locations: `${PREFIX}:locations:v2`,
   reference: `${PREFIX}:reference:v1`,
-  forecast: (globalIdLocal: number) => `${PREFIX}:forecast:v1:${globalIdLocal}`,
+  /** v2: bundles now include hourly data and model update timestamps. */
+  forecast: (globalIdLocal: number) => `${PREFIX}:forecast:v2:${globalIdLocal}`,
+  /** Bulk hazard files are cached per calendar day. */
+  fireRisk: (date: string) => `${PREFIX}:fire-risk:v1:${date}`,
+  sea: (date: string) => `${PREFIX}:sea:v1:${date}`,
 };
 
 /**
