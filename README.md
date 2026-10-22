@@ -1,6 +1,10 @@
-# Welcome to your Expo app 👋
+# IPMAgo
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+
+- Name: **IPMAgo**
+- Scheme: `ipmago`
+- Android package: `com.ipmago.app`
 
 ## Get started
 
@@ -37,9 +41,30 @@ This command will move the starter code to the **example** directory and create 
 
 ### Other setup steps
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
+- ESLint is configured (`eslint.config.js`). Run `npm run lint` to lint and `npm run typecheck` to typecheck.
 - If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
 - Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+
+## Android APK releases
+
+APKs are built in the cloud by GitHub Actions (`.github/workflows/android-apk.yml`) — no local Android SDK and no Expo account required.
+
+**Publish a new APK**
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow runs `expo prebuild` + `./gradlew assembleRelease`, then attaches `IPMAgo-v1.0.0.apk` to a GitHub Release on the tag. Users install it from **Releases** → *Assets*.
+
+You can also run it on demand from **Actions → Android APK → Run workflow**; in that case the APK is only available as a workflow artifact (Actions run page → *Artifacts*).
+
+Notes:
+
+- `android.versionCode` is set to the workflow run number at build time, so every APK installs over the previous one. `version` in `app.json` is what you bump for user-facing version numbers.
+- The APK is signed with the Expo template's debug keystore (standard for sideloaded builds). That's fine for direct download, but **not** for Google Play — Play requires your own upload key.
+- iOS is not configured; `ios/` stays out of the repo (CNG).
 
 ## Learn more
 

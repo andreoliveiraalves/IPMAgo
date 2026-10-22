@@ -1,3 +1,5 @@
+import type { ComponentRef, Ref } from 'react';
+
 import {
   Tabs,
   TabList,
@@ -33,9 +35,15 @@ export default function AppTabs() {
   );
 }
 
-export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+export function TabButton({ children, isFocused, ref, ...props }: TabTriggerSlotProps) {
   return (
-    <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
+    <Pressable
+      {...props}
+      // expo-router types the slot ref against the `View` component, which no longer
+      // matches Pressable's element ref in React Native 0.88. Both point at the same
+      // underlying native view, so this cast is safe.
+      ref={ref as Ref<ComponentRef<typeof Pressable>>}
+      style={({ pressed }) => pressed && styles.pressed}>
       <ThemedView
         type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
         style={styles.tabButtonView}>
