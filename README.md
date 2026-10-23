@@ -9,15 +9,15 @@ Android weather app built with Expo + React Native, using the free [IPMA](https:
 
 ## Features
 
-- **Daily forecast** (5 days) for any of the **423** IPMA forecast locations, grouped by district/island.
-- **Day details**: tap any day to open a sheet with hourly temperatures, UV index, humidity, feels-like temperature, max wind, **rural fire risk** and **sea state**.
+- **Daily forecast** (10 days) for any of the **423** IPMA forecast locations, grouped by district/island.
+- **Day details**: tap any day to open a sheet with an interactive hourly temperature chart, UV index, humidity, feels-like temperature, max wind, **rural fire risk** and **sea state**.
 - **Fire risk** for mainland municipalities (next 3 days, from IPMA's municipal risk maps).
 - **Sea state** for the nearest coastal zone when the selected place is within ~35 km of the coast: wave height, direction, period and water temperature (next 3 days).
 - **Favorites**: add/remove locations from the search list, the star on the detail screen, or long-press a card on the home screen.
 - **Current location**: optional GPS permission; the app matches your position to the nearest IPMA location and shows its forecast.
 - **Offline-friendly**: forecasts, the location list, hazard maps, weather-type labels and settings are cached on disk. Cached data is rendered instantly, then refreshed in the background (stale-while-revalidate, 10 min TTL to avoid redundant requests). Old data is never deleted just because it is old.
 - **Portuguese / English** switch, persisted between launches.
-- Light/dark theme follows the system, using an Azulejo-inspired palette.
+- Light/dark theme follows the system, using the default Apple-style palette.
 
 Weather labels and wind-class descriptions come from IPMA's own reference files, so they are translated by the source, not hardcoded.
 
@@ -42,6 +42,9 @@ npm run lint       # ESLint
 npm run typecheck  # tsc --noEmit
 npx expo-doctor    # dependency/config diagnostics
 ```
+
+For architecture, data flow, caching, theming and platform gotchas, see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 GPS works in Expo Go and in the released APK.
 
@@ -95,7 +98,7 @@ src/
   app/                          # Expo Router routes
     (tabs)/index.tsx            # favorites + current location
     (tabs)/explore.tsx          # searchable 423-location list
-    location/[id]/index.tsx     # 5-day detail
+    location/[id]/index.tsx     # 10-day detail
     location/[id]/day/[date].tsx # day detail sheet (hourly, fire, sea)
   api/ipma/                     # HTTP client, raw types, normalization
   components/                   # UI building blocks

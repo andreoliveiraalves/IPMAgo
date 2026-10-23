@@ -1,5 +1,21 @@
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 
+## Project context
+
+**IPMAgo** is an Android-first IPMA weather app (Expo SDK 58, React Native 0.88, Expo Router). It shows a 10-day forecast for 423 Portuguese locations, plus hourly details, fire risk, sea state, favorites, GPS matching and PT/EN. Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) before changing data flow, caching, theming, routing or web behavior — it documents the full system and the reasons behind it.
+
+Key invariants:
+
+- **Web is SSR** (`app.json` → `web.output: "server"`). Never touch `window`/`document` during render or at module scope; guard with `Platform.OS === 'web'` or use a `.web.ts` file. The root layout must import `useColorScheme` from `@/hooks/use-color-scheme` (not from `react-native`) so server and first client render match.
+- **Never nest `Pressable`/`Link`.** Compose tap targets as siblings inside a `View`. The location row in `src/app/(tabs)/explore.tsx` is the reference pattern.
+- **The day sheet uses `HourlyChart`, not a horizontal scroller.** Drag/tap the SVG curve to select an hour; keep the responder horizontal-only so vertical page scrolling still works when a gesture starts on the chart. Today's chart window is 4 h back + 20 h forward (crossing midnight); future days show their whole day. Rain probability is drawn as bars behind the curve, and fire risk is the last row of the hero stat panel — do not give it its own card again.
+- **Keep `useBlurOnRouteChange()` wired in `src/app/_layout.tsx`.** It fixes Chrome's "Blocked aria-hidden … retained focus" warning and must stay a layout effect on web.
+- **Data access goes through hooks** (`useLocations`, `useForecastList`, `useHazards`, `useNearestLocation`). Screens do not fetch or read AsyncStorage directly. Cache keys/TTLs live in `src/storage/storage.ts`; bump `vN` when a cached shape changes.
+- **Do not render empty/error states before loading settles.** `useForecastList` reports requested ids as loading until their first cache/network result; use `LoadingOverlay` when the payload is missing, and render `EmptyState` only when `!isLoading`.
+- **IPMA data is stringly typed.** `public-data` is primary and undocumented; `open-data` is the fallback. Normalize numbers and the `-99` sentinel in `src/api/ipma/`. `dataPrev`/`dataUpdate` are naive UTC — append `Z` before parsing.
+- **Palette is the template/Apple set** (`#007AFF` etc.), restored from commit `2e2e456`. Do not reintroduce the Azulejo runtime tokens from `988afa6`; native icon/splash assets still use navy.
+- No `bun.lock` — use `npm` / `npx`. Validate with `npm run typecheck && npm run lint`; use `npm run web` for browser checks.
+
 ## Expo has changed — do not trust your training data
 
 Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:
