@@ -49,15 +49,17 @@ function LocationRow({ location, isFavorite, onPress, onToggle }: RowProps) {
   const { t } = useI18n();
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={location.local}
-      accessibilityHint={t('locationsHint')}
-      onPress={onPress}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-      <ThemedText type="smallBold" numberOfLines={1} style={styles.rowLabel}>
-        {location.local}
-      </ThemedText>
+    <View style={styles.row}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={location.local}
+        accessibilityHint={t('locationsHint')}
+        onPress={onPress}
+        style={({ pressed }) => [styles.rowPress, pressed && styles.pressed]}>
+        <ThemedText type="smallBold" numberOfLines={1} style={styles.rowLabel}>
+          {location.local}
+        </ThemedText>
+      </Pressable>
 
       <Pressable
         accessibilityRole="button"
@@ -72,7 +74,7 @@ function LocationRow({ location, isFavorite, onPress, onToggle }: RowProps) {
           color={isFavorite ? theme.accent : theme.textSecondary}
         />
       </Pressable>
-    </Pressable>
+    </View>
   );
 }
 
@@ -205,7 +207,7 @@ export default function ExploreScreen() {
                 onPress={() =>
                   router.push({
                     pathname: '/location/[id]',
-                    params: { id: String(item.globalIdLocal) },
+                    params: { id: String(item.globalIdLocal), name: item.local },
                   })
                 }
                 onToggle={() => toggle(item.globalIdLocal)}
@@ -274,12 +276,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
+  },
+  rowPress: {
+    flex: 1,
+    justifyContent: 'center',
     paddingVertical: Spacing.two + 2,
   },
   rowLabel: {
-    flex: 1,
+    flexShrink: 1,
   },
   star: {
+    alignSelf: 'stretch',
+    justifyContent: 'center',
     paddingHorizontal: Spacing.one,
   },
   separator: {

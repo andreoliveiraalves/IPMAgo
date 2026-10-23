@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { fetchForecast } from '@/api/ipma';
 import type { ForecastBundle } from '@/api/ipma/types';
@@ -98,5 +98,25 @@ export function useForecastList(ids: number[]): ForecastListState {
     }
   }, [key, loadOne]);
 
-  return { entries, isRefreshing, refresh };
+  /**
+   * Entries are created asynchronously (cache read, then fetch), so between the
+   * first render and the first cache/network result a missing entry would look
+   * like "not loading, no data". Present requested ids as loading until their
+   * first result lands; this also keeps SSR and the first client render equal.
+   */
+  const visibleEntries = useMemo(() => {
+    const requested = key ? key.split(',').map(Number) : [];
+    if (requested.every((id) => entries[id] !== undefined)) {
+      return entries;
+    }
+
+    const next = { ...entries };
+    for (const id of requested) {
+      next[id] ??= { ...EMPTY_ENTRY, isLoading: true };
+    }
+
+    return next;
+  }, [entries, key]);
+
+  return { entries: visibleEntries, isRefreshing, refresh };
 }

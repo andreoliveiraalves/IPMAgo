@@ -133,14 +133,14 @@ const styles = StyleSheet.create({
   },
   background: {
     borderRadius: 40,
-    experimental_backgroundImage: `linear-gradient(180deg, #4A7FC1, #1B4F9C)`,
+    experimental_backgroundImage: `linear-gradient(180deg, #3C9FFE, #0274DF)`,
     width: 128,
     height: 128,
     position: 'absolute',
   },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#0F2A43',
+    backgroundColor: '#208AEF',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,

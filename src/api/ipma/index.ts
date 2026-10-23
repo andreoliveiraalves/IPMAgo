@@ -119,6 +119,9 @@ export async function fetchLocations(signal?: AbortSignal): Promise<IpmaLocation
   });
 }
 
+/** IPMA publishes 10 daily entries in the aggregate feed; show all of them. */
+const FORECAST_DAYS = 10;
+
 function parseAggregate(
   globalIdLocal: number,
   entries: IpmaAggregateEntry[]
@@ -194,7 +197,7 @@ function parseAggregate(
 
   return {
     globalIdLocal,
-    days: days.slice(0, 5),
+    days: days.slice(0, FORECAST_DAYS),
     hourly,
     updatedAt: Number.isFinite(updatedAt) ? updatedAt : Date.now(),
     fetchedAt: Date.now(),
@@ -230,7 +233,7 @@ function parseOpenDataDays(
 
   return {
     globalIdLocal,
-    days: days.slice(0, 5),
+    days: days.slice(0, FORECAST_DAYS),
     hourly: [],
     updatedAt: Date.now(),
     fetchedAt: Date.now(),

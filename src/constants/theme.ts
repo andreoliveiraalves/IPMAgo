@@ -1,6 +1,6 @@
 /**
- * Azulejo palette: cobalt tile blue, warm white, sand and terracotta.
- * The same tokens are used by every component so light/dark mode stays coherent.
+ * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
+ * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://unistyl.es/), etc.
  */
 
 import '@/global.css';
@@ -9,34 +9,34 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#0F2A43',
-    textSecondary: '#5B7085',
-    background: '#F7F5F0',
-    backgroundElement: '#FFFFFF',
-    backgroundSelected: '#E8EEF5',
-    border: '#D9E2EC',
-    primary: '#1B4F9C',
-    primarySoft: '#4A7FC1',
-    accent: '#C4622D',
-    danger: '#B3261E',
-    warning: '#B26B00',
-    success: '#2E7D5B',
+    text: '#000000',
+    textSecondary: '#60646C',
+    background: '#ffffff',
+    backgroundElement: '#F0F0F3',
+    backgroundSelected: '#E0E1E6',
+    border: '#D8D8D8',
+    primary: '#007AFF',
+    primarySoft: '#5AC8FA',
+    accent: '#FF9500',
+    danger: '#FF3B30',
+    warning: '#FF9500',
+    success: '#34C759',
     onPrimary: '#FFFFFF',
   },
   dark: {
-    text: '#F3F6F9',
-    textSecondary: '#A5B8C9',
-    background: '#0A1622',
-    backgroundElement: '#122436',
-    backgroundSelected: '#1B3147',
-    border: '#24405A',
-    primary: '#5C93D6',
-    primarySoft: '#8AB4E4',
-    accent: '#E08A57',
-    danger: '#F2B8B5',
-    warning: '#F5C26B',
-    success: '#7DD3A8',
-    onPrimary: '#0A1622',
+    text: '#ffffff',
+    textSecondary: '#B0B4BA',
+    background: '#000000',
+    backgroundElement: '#212225',
+    backgroundSelected: '#2E3135',
+    border: '#3A3A3C',
+    primary: '#0A84FF',
+    primarySoft: '#64D2FF',
+    accent: '#FF9F0A',
+    danger: '#FF453A',
+    warning: '#FFD60A',
+    success: '#30D158',
+    onPrimary: '#FFFFFF',
   },
 } as const;
 
@@ -49,15 +49,6 @@ export const FireRiskColors = {
   3: '#D97706',
   4: '#C0392B',
   5: '#7B1E1E',
-} as const;
-
-export const Brand = {
-  navy: '#0F2A43',
-  cobalt: '#1B4F9C',
-  tile: '#E8EEF5',
-  terracotta: '#C4622D',
-  sun: '#E8873A',
-  sky: '#4A7FC1',
 } as const;
 
 export const Fonts = Platform.select({

@@ -1,6 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +8,8 @@ import {
 
 import { AppIcon } from '@/components/app-icon';
 import { EmptyState } from '@/components/empty-state';
+import { HourlyChart } from '@/components/hourly-chart';
+import { LoadingOverlay } from '@/components/loading-overlay';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WeatherIcon } from '@/components/weather-icon';
@@ -23,13 +24,12 @@ import {
   fireRiskColor,
   fireRiskFor,
   fireRiskLabelKey,
-  type FireRiskLevel,
 } from '@/lib/fire-risk';
 import {
-  formatHour,
   formatRain,
   formatTemp,
   hasThreeHourly,
+  hourlyChartWindow,
   hourlyForDate,
   maxWindSpeed,
   representativeHour,
@@ -53,7 +53,9 @@ export default function DayDetailScreen() {
   const location = locations.find((item) => item.globalIdLocal === globalIdLocal) ?? null;
   const day = entry.bundle?.days.find((item) => item.date === date) ?? null;
   const hourly = day ? hourlyForDate(entry.bundle?.hourly ?? [], day.date) : [];
+  const chartHours = day ? hourlyChartWindow(entry.bundle?.hourly ?? [], day.date) : [];
   const highlight = representativeHour(hourly);
+  const maxWind = maxWindSpeed(hourly);
 
   const risk = fireRiskFor(hazards.fire, location, date);
   const nearest = nearestSeaZone(location, hazards.sea?.zones ?? []);
@@ -113,23 +115,77 @@ export default function DayDetailScreen() {
                       borderColor: theme.border,
                     },
                   ]}>
-                  <View style={styles.heroMain}>
-                    <WeatherIcon
-                      weatherTypeId={day.weatherTypeId}
-                      size={72}
-                      label={weatherLabel(day.weatherTypeId)}
-                    />
-                    <View style={styles.heroTemps}>
-                      <ThemedText type="title" themeColor="primary" style={styles.heroMax}>
-                        {formatTemp(day.maxTemp)}
-                      </ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {t('min')} {formatTemp(day.minTemp)}
-                      </ThemedText>
+                  <View style={styles.heroBody}>
+                    <View style={styles.heroNow}>
+                      <View style={styles.heroMain}>
+                        <WeatherIcon
+                          weatherTypeId={day.weatherTypeId}
+                          size={64}
+                          label={weatherLabel(day.weatherTypeId)}
+                        />
+                        <View style={styles.heroTemps}>
+                          <ThemedText type="title" themeColor="primary" style={styles.heroMax}>
+                            {formatTemp(day.maxTemp)}
+                          </ThemedText>
+                          <ThemedText type="small" themeColor="textSecondary">
+                            {t('min')} {formatTemp(day.minTemp)}
+                          </ThemedText>
+                        </View>
+                      </View>
+
+                      <ThemedText>{weatherLabel(day.weatherTypeId)}</ThemedText>
+                    </View>
+
+                    <View style={styles.heroDetails}>
+                      <HeroStat
+                        icon={AppIcons.uv}
+                        label={t('uvIndex')}
+                        value={
+                          day.uvIndex === null ? '—' : day.uvIndex.toFixed(1).replace('.0', '')
+                        }
+                        tone="accent"
+                      />
+                      <HeroStat
+                        icon={AppIcons.water}
+                        label={t('humidity')}
+                        value={
+                          highlight?.humidity == null
+                            ? '—'
+                            : `${Math.round(highlight.humidity)}%`
+                        }
+                        tone="primary"
+                      />
+                      <HeroStat
+                        icon={AppIcons.thermometer}
+                        label={t('feelsLike')}
+                        value={
+                          highlight?.feelings == null ? '—' : formatTemp(highlight.feelings)
+                        }
+                        tone="primary"
+                      />
+                      <HeroStat
+                        icon={AppIcons.wind}
+                        label={t('maxWind')}
+                        value={maxWind === null ? '—' : `${Math.round(maxWind)} km/h`}
+                        tone="primary"
+                      />
+                      <HeroStat
+                        icon={AppIcons.fire}
+                        label={t('fireRiskShort')}
+                        value={risk ? t(fireRiskLabelKey(risk)) : '—'}
+                        tone="textSecondary"
+                        color={risk ? fireRiskColor(risk) : theme.textSecondary}
+                        valueColor={risk ? fireRiskColor(risk) : undefined}
+                        accessibilityLabel={`${t('fireRisk')}: ${
+                          risk
+                            ? t(fireRiskLabelKey(risk))
+                            : hazards.isLoading && !hazards.fire
+                              ? t('loading')
+                              : fireUnavailable
+                        }`}
+                      />
                     </View>
                   </View>
-
-                  <ThemedText>{weatherLabel(day.weatherTypeId)}</ThemedText>
 
                   <View style={styles.heroMetrics}>
                     <View style={styles.metric}>
@@ -154,117 +210,20 @@ export default function DayDetailScreen() {
                     {t('hourlyTemperature').toUpperCase()}
                   </ThemedText>
 
-                  {hourly.length > 0 ? (
+                  {chartHours.length > 0 ? (
                     <>
-                      {hasThreeHourly(hourly) ? (
-                        <ThemedText type="small" themeColor="textSecondary">
-                          {t('hourlyStepHint')}
-                        </ThemedText>
-                      ) : null}
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.hours}>
-                        {hourly.map((hour) => (
-                          <View
-                            key={hour.time}
-                            style={[
-                              styles.hourCard,
-                              {
-                                backgroundColor: theme.backgroundElement,
-                                borderColor: theme.border,
-                              },
-                            ]}>
-                            <ThemedText type="small" themeColor="textSecondary">
-                              {formatHour(hour.time)}
-                            </ThemedText>
-                            <WeatherIcon
-                              weatherTypeId={hour.weatherTypeId}
-                              size={22}
-                              label={weatherLabel(hour.weatherTypeId)}
-                            />
-                            <ThemedText type="smallBold">{formatTemp(hour.temp)}</ThemedText>
-                            <ThemedText type="small" themeColor="textSecondary">
-                              {formatRain(hour.rainProbability)}
-                            </ThemedText>
-                          </View>
-                        ))}
-                      </ScrollView>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {hasThreeHourly(chartHours)
+                          ? `${t('hourlyChartHint')} · ${t('hourlyStepHint')}`
+                          : t('hourlyChartHint')}
+                      </ThemedText>
+                      <HourlyChart key={day.date} hours={chartHours} date={day.date} />
                     </>
                   ) : (
                     <ThemedText type="small" themeColor="textSecondary">
                       {t('noHourlyData')}
                     </ThemedText>
                   )}
-                </View>
-
-                <View style={styles.grid}>
-                  <MetricTile
-                    icon={AppIcons.uv}
-                    label={t('uvIndex')}
-                    value={
-                      day.uvIndex === null
-                        ? '—'
-                        : day.uvIndex.toFixed(1).replace('.0', '')
-                    }
-                    tone="accent"
-                  />
-                  <MetricTile
-                    icon={AppIcons.water}
-                    label={t('humidity')}
-                    value={highlight?.humidity === null || !highlight ? '—' : `${Math.round(highlight.humidity)}%`}
-                    tone="primary"
-                  />
-                  <MetricTile
-                    icon={AppIcons.thermometer}
-                    label={t('feelsLike')}
-                    value={
-                      highlight?.feelings === null || !highlight
-                        ? '—'
-                        : formatTemp(highlight.feelings)
-                    }
-                    tone="primary"
-                  />
-                  <MetricTile
-                    icon={AppIcons.wind}
-                    label={t('maxWind')}
-                    value={
-                      maxWindSpeed(hourly) === null
-                        ? '—'
-                        : `${Math.round(maxWindSpeed(hourly) as number)} km/h`
-                    }
-                    tone="primary"
-                  />
-                </View>
-
-                <View
-                  style={[
-                    styles.card,
-                    {
-                      backgroundColor: theme.backgroundElement,
-                      borderColor: theme.border,
-                    },
-                  ]}>
-                  <View style={styles.cardRow}>
-                    <AppIcon
-                      name={AppIcons.fire}
-                      size={26}
-                      color={risk ? fireRiskColor(risk) : theme.textSecondary}
-                    />
-                    <View style={styles.cardText}>
-                      <ThemedText type="smallBold">{t('fireRisk')}</ThemedText>
-                      {risk ? (
-                        <ThemedText type="small" style={{ color: fireRiskColor(risk) }}>
-                          {t(fireRiskLabelKey(risk))}
-                        </ThemedText>
-                      ) : (
-                        <ThemedText type="small" themeColor="textSecondary">
-                          {hazards.isLoading && !hazards.fire ? t('loading') : fireUnavailable}
-                        </ThemedText>
-                      )}
-                    </View>
-                    {risk ? <RiskBadge risk={risk} /> : null}
-                  </View>
                 </View>
 
                 {nearest ? (
@@ -320,14 +279,7 @@ export default function DayDetailScreen() {
                   </ThemedText>
                 ) : null}
               </>
-            ) : entry.isLoading ? (
-              <View style={styles.loadingRow}>
-                <ActivityIndicator color={theme.primary} />
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t('loading')}
-                </ThemedText>
-              </View>
-            ) : (
+            ) : !entry.isLoading ? (
               <EmptyState
                 icon={AppIcons.alert}
                 title={t('noData')}
@@ -337,51 +289,50 @@ export default function DayDetailScreen() {
                   void refresh();
                 }}
               />
-            )}
+            ) : null}
           </View>
         </ScrollView>
+        <LoadingOverlay visible={!day && entry.isLoading} label={t('loading')} />
       </ThemedView>
     </>
   );
 }
 
-function MetricTile({
+function HeroStat({
   icon,
   label,
   value,
   tone,
+  color,
+  valueColor,
+  accessibilityLabel,
 }: {
   icon: AppIconName;
   label: string;
   value: string;
   tone: ThemeColor;
+  color?: string;
+  valueColor?: string;
+  accessibilityLabel?: string;
 }) {
-  const theme = useTheme();
-
   return (
     <View
-      style={[
-        styles.tile,
-        { backgroundColor: theme.backgroundElement, borderColor: theme.border },
-      ]}>
-      <View style={styles.tileHeader}>
-        <AppIcon name={icon} size={18} themeColor={tone} />
-        <ThemedText type="small" themeColor="textSecondary">
-          {label}
-        </ThemedText>
-      </View>
-      <ThemedText type="smallBold">{value}</ThemedText>
-    </View>
-  );
-}
-
-function RiskBadge({ risk }: { risk: FireRiskLevel }) {
-  return (
-    <View style={[styles.badge, { backgroundColor: fireRiskColor(risk) }]}>
+      style={styles.heroStat}
+      accessible={accessibilityLabel ? true : undefined}
+      accessibilityLabel={accessibilityLabel}>
+      <AppIcon name={icon} size={14} color={color} themeColor={tone} />
+      <ThemedText
+        type="small"
+        themeColor="textSecondary"
+        numberOfLines={1}
+        style={styles.heroStatLabel}>
+        {label}
+      </ThemedText>
       <ThemedText
         type="smallBold"
-        style={{ color: risk === 2 ? '#0F2A43' : '#FFFFFF' }}>
-        {risk}/5
+        numberOfLines={1}
+        style={[styles.heroStatValue, valueColor ? { color: valueColor } : null]}>
+        {value}
       </ThemedText>
     </View>
   );
@@ -420,16 +371,46 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.two,
   },
+  heroBody: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  heroNow: {
+    flex: 1,
+    minWidth: 120,
+    gap: Spacing.two,
+  },
   heroMain: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.four,
+    gap: Spacing.two,
   },
   heroTemps: {
     gap: 2,
   },
   heroMax: {
     lineHeight: 52,
+  },
+  heroDetails: {
+    width: 152,
+    gap: Spacing.two,
+  },
+  heroStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  heroStatLabel: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  heroStatValue: {
+    flexShrink: 0,
+    fontSize: 12,
+    lineHeight: 16,
   },
   heroMetrics: {
     flexDirection: 'row',
@@ -441,36 +422,6 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: Spacing.two,
-  },
-  hours: {
-    gap: Spacing.two,
-    paddingVertical: Spacing.one,
-  },
-  hourCard: {
-    width: 64,
-    alignItems: 'center',
-    gap: Spacing.one,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.two,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  tile: {
-    flexBasis: '47%',
-    flexGrow: 1,
-    gap: Spacing.one,
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  tileHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
   },
   card: {
     gap: Spacing.three,
@@ -487,12 +438,7 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  badge: {
-    borderRadius: 999,
-    paddingHorizontal: Spacing.two + 2,
-    paddingVertical: Spacing.one,
-  },
-  seaGrid: {
+    seaGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     rowGap: Spacing.two,
@@ -500,11 +446,5 @@ const styles = StyleSheet.create({
   seaMetric: {
     width: '50%',
     gap: 2,
-  },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    paddingVertical: Spacing.four,
   },
 });

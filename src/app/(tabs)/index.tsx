@@ -76,8 +76,8 @@ export default function FavoritesScreen() {
           ? t('updatedMinutes', { count: age.value })
           : t('updatedHours', { count: age.value });
 
-  const openLocation = (globalIdLocal: number) => {
-    router.push({ pathname: '/location/[id]', params: { id: String(globalIdLocal) } });
+  const openLocation = (globalIdLocal: number, name: string) => {
+    router.push({ pathname: '/location/[id]', params: { id: String(globalIdLocal), name } });
   };
 
   const confirmRemove = (location: IpmaLocation) => {
@@ -159,7 +159,7 @@ export default function FavoritesScreen() {
                   location={match.location}
                   entry={entries[match.location.globalIdLocal] ?? EMPTY_ENTRY}
                   distanceKm={match.distanceKm}
-                  onPress={() => openLocation(match.location.globalIdLocal)}
+                  onPress={() => openLocation(match.location.globalIdLocal, match.location.local)}
                 />
               </View>
             ) : (
@@ -188,7 +188,7 @@ export default function FavoritesScreen() {
                       key={location.globalIdLocal}
                       location={location}
                       entry={entries[location.globalIdLocal] ?? EMPTY_ENTRY}
-                      onPress={() => openLocation(location.globalIdLocal)}
+                      onPress={() => openLocation(location.globalIdLocal, location.local)}
                       onLongPress={() => confirmRemove(location)}
                     />
                   ))}

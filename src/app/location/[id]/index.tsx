@@ -1,6 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -11,6 +10,7 @@ import {
 import { AppIcon } from '@/components/app-icon';
 import { EmptyState } from '@/components/empty-state';
 import { ForecastDayRow } from '@/components/forecast-day-row';
+import { LoadingOverlay } from '@/components/loading-overlay';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WeatherIcon } from '@/components/weather-icon';
@@ -26,13 +26,13 @@ import { useFavorites } from '@/state/favorites';
 import { useReferenceData } from '@/state/reference-data';
 
 export default function LocationDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const router = useRouter();
   const globalIdLocal = Number(id);
   const isValid = Number.isFinite(globalIdLocal);
 
   const theme = useTheme();
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const { locations } = useLocations();
   const { entry, isRefreshing, refresh } = useForecast(isValid ? globalIdLocal : null);
   const { isFavorite, toggle } = useFavorites();
@@ -68,7 +68,7 @@ export default function LocationDetailScreen() {
     <>
       <Stack.Screen
         options={{
-          title: location?.local ?? (language === 'pt' ? 'Previsão' : 'Forecast'),
+          title: location?.local ?? name ?? '',
           headerBackButtonDisplayMode: 'minimal',
           headerRight:
             isValid && location
@@ -162,14 +162,7 @@ export default function LocationDetailScreen() {
                   </View>
                 </View>
               </Pressable>
-            ) : entry.isLoading ? (
-              <View style={styles.loadingRow}>
-                <ActivityIndicator color={theme.primary} />
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t('loading')}
-                </ThemedText>
-              </View>
-            ) : (
+            ) : !entry.isLoading ? (
               <EmptyState
                 icon={AppIcons.cloudOff}
                 title={t('loadError')}
@@ -179,12 +172,12 @@ export default function LocationDetailScreen() {
                   void refresh();
                 }}
               />
-            )}
+            ) : null}
 
             {days.length > 0 ? (
               <View style={styles.section}>
                 <ThemedText type="smallBold" themeColor="primary">
-                  {t('nextDays').toUpperCase()}
+                  {t('nextDays', { count: days.length }).toUpperCase()}
                 </ThemedText>
 
                 <View
@@ -220,6 +213,7 @@ export default function LocationDetailScreen() {
             ) : null}
           </View>
         </ScrollView>
+        <LoadingOverlay visible={!current && entry.isLoading} label={t('loading')} />
       </ThemedView>
     </>
   );
@@ -282,12 +276,6 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: StyleSheet.hairlineWidth,
-  },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    paddingVertical: Spacing.four,
   },
   footer: {
     textAlign: 'center',

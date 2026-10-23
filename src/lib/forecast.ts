@@ -35,6 +35,41 @@ export function hourlyForDate(hourly: HourlyForecast[], date: string): HourlyFor
   return hourly.filter((item) => localDateKey(item.time) === date);
 }
 
+/** Hours before "now" kept in today's chart. */
+const CHART_PAST_HOURS = 4;
+/** Hours after "now" kept in today's chart, crossing into tomorrow. */
+const CHART_FUTURE_HOURS = 20;
+
+/**
+ * Hourly entries to plot for a day.
+ *
+ * Future days show their whole local day. Today shows a rolling window —
+ * the last 4 hours plus the next 20 — so the chart is about what is coming
+ * rather than replaying the morning, and it crosses midnight like the hourly
+ * strip in mainstream weather apps.
+ */
+export function hourlyChartWindow(
+  hourly: HourlyForecast[],
+  date: string,
+  now: Date = new Date()
+): HourlyForecast[] {
+  if (date !== toIsoDate(now)) {
+    return hourlyForDate(hourly, date);
+  }
+
+  const start = new Date(now);
+  start.setMinutes(0, 0, 0);
+  start.setHours(start.getHours() - CHART_PAST_HOURS);
+
+  const end = new Date(start);
+  end.setHours(end.getHours() + CHART_PAST_HOURS + CHART_FUTURE_HOURS);
+
+  return hourly.filter((item) => {
+    const time = parseNaiveUtc(item.time);
+    return time >= start && time <= end;
+  });
+}
+
 /** `14:00`, in the device's local time. */
 export function formatHour(value: string): string {
   const date = parseNaiveUtc(value);

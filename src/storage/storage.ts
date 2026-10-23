@@ -8,8 +8,8 @@ export const storageKeys = {
   /** v2: the list grew from 35 to 423 locations. */
   locations: `${PREFIX}:locations:v2`,
   reference: `${PREFIX}:reference:v1`,
-  /** v2: bundles now include hourly data and model update timestamps. */
-  forecast: (globalIdLocal: number) => `${PREFIX}:forecast:v2:${globalIdLocal}`,
+  /** v3: bundles now contain up to 10 forecast days. */
+  forecast: (globalIdLocal: number) => `${PREFIX}:forecast:v3:${globalIdLocal}`,
   /** Bulk hazard files are cached per calendar day. */
   fireRisk: (date: string) => `${PREFIX}:fire-risk:v1:${date}`,
   sea: (date: string) => `${PREFIX}:sea:v1:${date}`,

@@ -53,15 +53,24 @@ export function ForecastDayRow({ day, onPress }: Props) {
           {weatherLabel(day.weatherTypeId)}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-          {day.windDirection} · {windLabel(day.windClass)} · {formatRain(day.rainProbability)}
+          {day.windDirection} · {windLabel(day.windClass)}
         </ThemedText>
       </View>
 
-      <View style={styles.temps}>
-        <ThemedText type="smallBold">{formatTemp(day.maxTemp)}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {formatTemp(day.minTemp)}
-        </ThemedText>
+      <View style={styles.metrics}>
+        <View style={styles.temps}>
+          <ThemedText type="smallBold">{formatTemp(day.maxTemp)}</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {formatTemp(day.minTemp)}
+          </ThemedText>
+        </View>
+
+        <View style={styles.rain}>
+          <ThemedText type="small" themeColor="textSecondary">
+            {t('rain')}
+          </ThemedText>
+          <ThemedText type="smallBold">{formatRain(day.rainProbability)}</ThemedText>
+        </View>
       </View>
 
       {onPress ? <AppIcon name={AppIcons.chevronRight} size={20} /> : null}
@@ -77,7 +86,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two + 2,
   },
   date: {
-    width: 88,
+    width: 80,
     gap: 2,
   },
   summary: {
@@ -85,6 +94,16 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   temps: {
+    alignItems: 'flex-end',
+    gap: 2,
+    minWidth: 32,
+  },
+  metrics: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  rain: {
     alignItems: 'flex-end',
     gap: 2,
     minWidth: 40,
