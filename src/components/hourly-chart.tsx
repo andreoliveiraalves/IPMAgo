@@ -10,6 +10,7 @@ import {
 import Svg, {
   Circle,
   Defs,
+  G,
   Line,
   LinearGradient,
   Path,
@@ -19,6 +20,7 @@ import Svg, {
 } from 'react-native-svg';
 
 import type { HourlyForecast } from '@/api/ipma/types';
+import { AppIcon } from '@/components/app-icon';
 import { ThemedText } from '@/components/themed-text';
 import { WeatherIcon } from '@/components/weather-icon';
 import { Spacing } from '@/constants/theme';
@@ -32,6 +34,8 @@ import {
   localDateKey,
   parseNaiveUtc,
 } from '@/lib/forecast';
+import { formatClock, type SunDay } from '@/lib/sun';
+import { AppIcons } from '@/lib/weather';
 import { useReferenceData } from '@/state/reference-data';
 
 const CHART_HEIGHT = 148;
@@ -41,10 +45,14 @@ const PAD_TOP = 18;
 const PAD_BOTTOM = 26;
 /** Max height of the rain-probability bars, as a share of the plot height. */
 const RAIN_BAR_HEIGHT_RATIO = 0.55;
+/** Daylight strip drawn above the plot. */
+const DAYLIGHT_STRIP_HEIGHT = 3;
 
 type Props = {
   hours: HourlyForecast[];
   date: string;
+  /** Sun times of the days covered by `hours` (today's window crosses midnight). */
+  sun?: SunDay[];
 };
 
 /** Index of the entry closest to `targetHour`, used as the initial selection. */
@@ -95,7 +103,7 @@ function rainProbabilityAt(hours: HourlyForecast[], index: number): number | nul
  * shows the weather, temperature and rain probability for that hour. This
  * replaces the old horizontally scrolling row of hour cards.
  */
-export function HourlyChart({ hours, date }: Props) {
+export function HourlyChart({ hours, date, sun = [] }: Props) {
   const theme = useTheme();
   const { t } = useI18n();
   const { weatherLabel } = useReferenceData();
@@ -204,7 +212,17 @@ export function HourlyChart({ hours, date }: Props) {
     const bottom = PAD_TOP + plotHeight;
 
     if (hours.length === 0) {
-      return { points: [], line: '', area: '', plotHeight, bottom, ticks: [], rainBars: [] };
+      return {
+        points: [],
+        line: '',
+        area: '',
+        plotHeight,
+        bottom,
+        ticks: [],
+        rainBars: [],
+        sunMarkers: [],
+        daylight: [],
+      };
     }
 
     const temps = hours.map((hour) => hour.temp);
@@ -271,9 +289,75 @@ export function HourlyChart({ hours, date }: Props) {
         } => bar !== null
       );
 
-    return { points, line, area, plotHeight, bottom, ticks, rainBars };
-  }, [hours, width]);
+    /**
+     * Maps an instant to the plot. Hours are evenly spaced by index, so the
+     * position inside a segment is interpolated by time; this keeps the sun
+     * markers on 06:58 instead of snapping them to 07:00.
+     */
+    const instants = hours.map((hour) => parseNaiveUtc(hour.time).getTime());
+    const firstInstant = instants[0];
+    const lastInstant = instants[instants.length - 1];
 
+    const xForTime = (instant: number): number => {
+      if (instant <= firstInstant) {
+        return points[0].x;
+      }
+      if (instant >= lastInstant) {
+        return points[points.length - 1].x;
+      }
+
+      for (let index = 0; index < instants.length - 1; index += 1) {
+        const start = instants[index];
+        const end = instants[index + 1];
+
+        if (instant >= start && instant <= end) {
+          const ratio = end === start ? 0 : (instant - start) / (end - start);
+          return points[index].x + ratio * (points[index + 1].x - points[index].x);
+        }
+      }
+
+      return points[points.length - 1].x;
+    };
+
+    const sunMarkers: { kind: 'sunrise' | 'sunset'; x: number; label: string }[] = [];
+    const daylight: { key: string; x: number; width: number }[] = [];
+
+    for (const day of sun) {
+      const sunriseInstant = day.sunrise?.getTime() ?? null;
+      const sunsetInstant = day.sunset?.getTime() ?? null;
+
+      if (sunriseInstant !== null && sunriseInstant >= firstInstant && sunriseInstant <= lastInstant) {
+        sunMarkers.push({
+          kind: 'sunrise',
+          x: xForTime(sunriseInstant),
+          label: formatClock(day.sunrise as Date),
+        });
+      }
+
+      if (sunsetInstant !== null && sunsetInstant >= firstInstant && sunsetInstant <= lastInstant) {
+        sunMarkers.push({
+          kind: 'sunset',
+          x: xForTime(sunsetInstant),
+          label: formatClock(day.sunset as Date),
+        });
+      }
+
+      if (sunriseInstant === null || sunsetInstant === null) {
+        continue;
+      }
+
+      const start = Math.max(sunriseInstant, firstInstant);
+      const end = Math.min(sunsetInstant, lastInstant);
+
+      if (end > start) {
+        const x0 = xForTime(start);
+        const x1 = xForTime(end);
+        daylight.push({ key: `${start}-${end}`, x: x0, width: Math.max(x1 - x0, 2) });
+      }
+    }
+
+    return { points, line, area, plotHeight, bottom, ticks, rainBars, sunMarkers, daylight };
+  }, [hours, sun, width]);
   if (!active) {
     return null;
   }
@@ -329,9 +413,19 @@ export function HourlyChart({ hours, date }: Props) {
         accessibilityRole="adjustable"
         accessibilityLabel={t('hourlyTemperature')}
         accessibilityValue={{
-          text: `${activeTimeLabel}, ${formatTemp(active.temp)}, ${activeLabel}, ${formatRain(
-            activeRain
-          )}`,
+          text: [
+            `${activeTimeLabel}, ${formatTemp(active.temp)}, ${activeLabel}, ${formatRain(
+              activeRain
+            )}`,
+            sun[0]?.sunrise
+              ? `${t('sunrise')} ${formatClock(sun[0].sunrise)}`
+              : null,
+            sun[0]?.sunset
+              ? `${t('sunset')} ${formatClock(sun[0].sunset)}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(', '),
         }}
         accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
         onAccessibilityAction={(event) => {
@@ -362,6 +456,61 @@ export function HourlyChart({ hours, date }: Props) {
                 strokeDasharray="3 5"
               />
             ))}
+
+            {/* Daylight strip: full window in a neutral track, sun-up in accent. */}
+            <Rect
+              x={PAD_LEFT}
+              y={1}
+              width={Math.max(width - PAD_LEFT - PAD_RIGHT, 0)}
+              height={DAYLIGHT_STRIP_HEIGHT}
+              rx={DAYLIGHT_STRIP_HEIGHT / 2}
+              fill={theme.border}
+              opacity={0.6}
+            />
+
+            {geometry.daylight.map((segment) => (
+              <Rect
+                key={`daylight-${segment.key}`}
+                x={segment.x}
+                y={1}
+                width={segment.width}
+                height={DAYLIGHT_STRIP_HEIGHT}
+                rx={DAYLIGHT_STRIP_HEIGHT / 2}
+                fill={theme.accent}
+                opacity={0.85}
+              />
+            ))}
+
+            {geometry.sunMarkers.map((marker) => {
+              const labelX = Math.min(
+                Math.max(marker.x, PAD_LEFT + 12),
+                width - PAD_RIGHT - 12
+              );
+
+              return (
+                <G key={`sun-${marker.kind}-${marker.label}`}>
+                  <Line
+                    x1={marker.x}
+                    x2={marker.x}
+                    y1={4}
+                    y2={geometry.bottom}
+                    stroke={theme.accent}
+                    strokeWidth={1}
+                    strokeDasharray="2 4"
+                    opacity={0.55}
+                  />
+                  <SvgText
+                    x={labelX}
+                    y={PAD_TOP - 5}
+                    fill={theme.textSecondary}
+                    fontSize={9}
+                    fontWeight="700"
+                    textAnchor="middle">
+                    {marker.label}
+                  </SvgText>
+                </G>
+              );
+            })}
 
             <Path d={geometry.area} fill="url(#hourlyTempFill)" />
 
@@ -430,6 +579,27 @@ export function HourlyChart({ hours, date }: Props) {
           </Svg>
         ) : null}
       </View>
+
+      {sun[0] && (sun[0].sunrise || sun[0].sunset) ? (
+        <View style={styles.sunCaption}>
+          {sun[0].sunrise ? (
+            <View style={styles.sunCaptionItem}>
+              <AppIcon name={AppIcons.sunrise} size={13} color={theme.accent} />
+              <ThemedText type="small" themeColor="textSecondary">
+                {t('sunrise')} {formatClock(sun[0].sunrise)}
+              </ThemedText>
+            </View>
+          ) : null}
+          {sun[0].sunset ? (
+            <View style={styles.sunCaptionItem}>
+              <AppIcon name={AppIcons.sunset} size={13} color={theme.accent} />
+              <ThemedText type="small" themeColor="textSecondary">
+                {t('sunset')} {formatClock(sun[0].sunset)}
+              </ThemedText>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -476,5 +646,16 @@ const styles = StyleSheet.create({
   chart: {
     width: '100%',
     height: CHART_HEIGHT,
+  },
+  sunCaption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.three,
+  },
+  sunCaptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
   },
 });

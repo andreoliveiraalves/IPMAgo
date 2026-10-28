@@ -6,17 +6,20 @@ import {
   View,
 } from 'react-native';
 
+import { cardinal } from '@/api/marine';
 import { AppIcon } from '@/components/app-icon';
 import { EmptyState } from '@/components/empty-state';
 import { HourlyChart } from '@/components/hourly-chart';
 import { LoadingOverlay } from '@/components/loading-overlay';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { TideChart } from '@/components/tide-chart';
 import { WeatherIcon } from '@/components/weather-icon';
 import { MaxContentWidth, Spacing, type ThemeColor } from '@/constants/theme';
 import { useForecast } from '@/hooks/use-forecast';
 import { useHazards } from '@/hooks/use-hazards';
 import { useLocations } from '@/hooks/use-locations';
+import { useMarine } from '@/hooks/use-marine';
 import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/i18n';
 import { formatShortDate, formatWeekday, relativeDayKey } from '@/lib/dates';
@@ -26,15 +29,30 @@ import {
   fireRiskLabelKey,
 } from '@/lib/fire-risk';
 import {
+  formatHour,
   formatRain,
   formatTemp,
   hasThreeHourly,
   hourlyChartWindow,
   hourlyForDate,
+  localDateKey,
   maxWindSpeed,
   representativeHour,
 } from '@/lib/forecast';
-import { formatRange, nearestSeaZone, seaDayFor } from '@/lib/sea';
+import {
+  formatRange,
+  nearestSeaZone,
+  seaDayFor,
+  seaDaysFrom,
+  seaStateFor,
+} from '@/lib/sea';
+import { sunTimes, type SunDay } from '@/lib/sun';
+import {
+  nextTideEvents,
+  tideEvents,
+  tideEventsInDay,
+  tideSeries,
+} from '@/lib/tide';
 import { AppIcons, type AppIconName } from '@/lib/weather';
 import { useReferenceData } from '@/state/reference-data';
 
@@ -59,9 +77,48 @@ export default function DayDetailScreen() {
 
   const risk = fireRiskFor(hazards.fire, location, date);
   const nearest = nearestSeaZone(location, hazards.sea?.zones ?? []);
-  const seaDay = nearest ? seaDayFor(hazards.sea, nearest.zone.globalIdLocal, date) : null;
+  const parentSeaDay = nearest ? seaDayFor(hazards.sea, nearest.zone.globalIdLocal, date) : null;
 
   const relative = day ? relativeDayKey(day.date) : 'other';
+
+  const marine = useMarine(
+    nearest?.zone.globalIdLocal ?? null,
+    nearest?.zone.latitude ?? null,
+    nearest?.zone.longitude ?? null,
+    day?.date ?? null
+  );
+
+  // The chart window can cross midnight, so one pair per covered day.
+  const sunDays: SunDay[] = [];
+  if (location && chartHours.length > 0) {
+    const latitude = Number(location.latitude);
+    const longitude = Number(location.longitude);
+    const dates = Array.from(new Set(chartHours.map((hour) => localDateKey(hour.time)))).sort();
+
+    for (const sunDate of dates) {
+      sunDays.push(sunTimes(latitude, longitude, sunDate));
+    }
+  }
+
+  const marineHours = marine.data?.hours ?? [];
+  const tideSamples = tideSeries(marineHours, date);
+  const allTideEvents = tideEvents(marineHours);
+  const dayTideEvents = tideEventsInDay(allTideEvents, date);
+  const upcomingTides = nextTideEvents(
+    dayTideEvents,
+    2,
+    relative === 'today' ? new Date() : undefined
+  );
+  const marineHour =
+    marineHours.find((hour) => hour.time.slice(0, 13) === highlight?.time.slice(0, 13)) ??
+    tideSamples[0] ??
+    null;
+  const seaState = parentSeaDay ? seaStateFor(parentSeaDay.totalSeaMax) : null;
+  const seaDays =
+    nearest && parentSeaDay
+      ? seaDaysFrom(hazards.sea, nearest.zone.globalIdLocal, date, 3)
+      : [];
+
   const dayTitle = day
     ? relative === 'today'
       ? `${t('today')} · ${formatShortDate(day.date)}`
@@ -217,7 +274,12 @@ export default function DayDetailScreen() {
                           ? `${t('hourlyChartHint')} · ${t('hourlyStepHint')}`
                           : t('hourlyChartHint')}
                       </ThemedText>
-                      <HourlyChart key={day.date} hours={chartHours} date={day.date} />
+                      <HourlyChart
+                        key={day.date}
+                        hours={chartHours}
+                        date={day.date}
+                        sun={sunDays}
+                      />
                     </>
                   ) : (
                     <ThemedText type="small" themeColor="textSecondary">
@@ -239,7 +301,7 @@ export default function DayDetailScreen() {
                       <AppIcon
                         name={AppIcons.waves}
                         size={26}
-                        color={seaDay ? theme.primary : theme.textSecondary}
+                        color={parentSeaDay ? theme.primary : theme.textSecondary}
                       />
                       <View style={styles.cardText}>
                         <ThemedText type="smallBold">{t('sea')}</ThemedText>
@@ -249,27 +311,156 @@ export default function DayDetailScreen() {
                       </View>
                     </View>
 
-                    {seaDay ? (
+                    {parentSeaDay ? (
                       <View style={styles.seaGrid}>
                         <SeaMetric
                           label={t('waveHeight')}
-                          value={formatRange(seaDay.waveHeightMin, seaDay.waveHeightMax, 'm')}
+                          value={formatRange(
+                            parentSeaDay.waveHeightMin,
+                            parentSeaDay.waveHeightMax,
+                            'm'
+                          )}
                         />
-                        <SeaMetric label={t('wind')} value={seaDay.waveDirection || '—'} />
+                        <SeaMetric
+                          label={t('totalSea')}
+                          value={formatRange(
+                            parentSeaDay.totalSeaMin,
+                            parentSeaDay.totalSeaMax,
+                            'm'
+                          )}
+                        />
+                        <SeaMetric
+                          label={t('seaState')}
+                          value={seaState === null ? '—' : t(`seaState${seaState}`)}
+                        />
                         <SeaMetric
                           label={t('wavePeriod')}
-                          value={formatRange(seaDay.wavePeriodMin, seaDay.wavePeriodMax, 's')}
+                          value={formatRange(
+                            parentSeaDay.wavePeriodMin,
+                            parentSeaDay.wavePeriodMax,
+                            's'
+                          )}
+                        />
+                        <SeaMetric
+                          label={t('waveDirection')}
+                          value={parentSeaDay.waveDirection || '—'}
                         />
                         <SeaMetric
                           label={t('seaTemperature')}
-                          value={formatRange(seaDay.seaTempMin, seaDay.seaTempMax, '°C', 0)}
+                          value={formatRange(
+                            parentSeaDay.seaTempMin,
+                            parentSeaDay.seaTempMax,
+                            '°C',
+                            0
+                          )}
+                        />
+                        <SeaMetric
+                          label={t('swell')}
+                          value={
+                            marineHour?.swellHeight == null
+                              ? '—'
+                              : `${marineHour.swellHeight.toFixed(1)} m${
+                                  marineHour.swellPeriod == null
+                                    ? ''
+                                    : ` · ${Math.round(marineHour.swellPeriod)} s`
+                                }`
+                          }
+                        />
+                        <SeaMetric
+                          label={t('windSea')}
+                          value={
+                            marineHour?.windWaveHeight == null
+                              ? '—'
+                              : `${marineHour.windWaveHeight.toFixed(1)} m${
+                                  marineHour.windWavePeriod == null
+                                    ? ''
+                                    : ` · ${Math.round(marineHour.windWavePeriod)} s`
+                                }`
+                          }
                         />
                       </View>
-                    ) : (
+                    ) : null}
+
+                    <View style={styles.inlineMetric}>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {t('current')}
+                      </ThemedText>
+                      <ThemedText type="smallBold">
+                        {marineHour?.currentKnots == null
+                          ? '—'
+                          : `${marineHour.currentKnots.toFixed(1)} kt${
+                              cardinal(marineHour.currentDirection)
+                                ? ` · ${cardinal(marineHour.currentDirection)}`
+                                : ''
+                            }`}
+                      </ThemedText>
+                    </View>
+
+                    {upcomingTides.length > 0 ? (
+                      <View style={styles.tideRow}>
+                        {upcomingTides.map((event) => (
+                          <View
+                            key={`${event.kind}-${event.time.toISOString()}`}
+                            style={[
+                              styles.tideChip,
+                              { backgroundColor: theme.backgroundSelected },
+                            ]}>
+                            <AppIcon
+                              name={event.kind === 'high' ? AppIcons.tideHigh : AppIcons.tideLow}
+                              size={14}
+                              color={theme.primary}
+                            />
+                            <ThemedText type="small" themeColor="textSecondary">
+                              {event.kind === 'high' ? t('highTide') : t('lowTide')}
+                            </ThemedText>
+                            <ThemedText type="smallBold">
+                              {formatHour(event.time.toISOString())}
+                            </ThemedText>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+
+                    {tideSamples.length > 1 ? (
+                      <View style={styles.tideBlock}>
+                        <ThemedText type="smallBold" themeColor="primary">
+                          {t('tide').toUpperCase()}
+                        </ThemedText>
+                        <TideChart hours={tideSamples} events={dayTideEvents} />
+                      </View>
+                    ) : null}
+
+                    {seaDays.length > 1 ? (
+                      <View style={styles.seaDays}>
+                        {seaDays.map((seaItem) => (
+                          <View
+                            key={seaItem.date}
+                            style={[
+                              styles.seaDay,
+                              { backgroundColor: theme.backgroundSelected },
+                            ]}>
+                            <ThemedText type="small" themeColor="textSecondary">
+                              {formatShortDate(seaItem.date)}
+                            </ThemedText>
+                            <ThemedText type="smallBold">
+                              {formatRange(seaItem.waveHeightMin, seaItem.waveHeightMax, 'm')}
+                            </ThemedText>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+
+                    {marineHour || tideSamples.length > 1 ? (
+                      <ThemedText type="small" themeColor="textSecondary" style={styles.tideNote}>
+                        {t('tideModelNote')}
+                      </ThemedText>
+                    ) : null}
+
+                    {!parentSeaDay && !marineHour && tideSamples.length <= 1 ? (
                       <ThemedText type="small" themeColor="textSecondary">
                         {hazards.isLoading && !hazards.sea ? t('loading') : t('seaUnavailable')}
                       </ThemedText>
-                    )}
+                    ) : null}
                   </View>
                 ) : null}
 
@@ -438,7 +629,7 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-    seaGrid: {
+  seaGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     rowGap: Spacing.two,
@@ -446,5 +637,42 @@ const styles = StyleSheet.create({
   seaMetric: {
     width: '50%',
     gap: 2,
+  },
+  inlineMetric: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  tideRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },  tideChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+    borderRadius: Spacing.two,
+  },
+  tideBlock: {
+    gap: Spacing.one,
+  },
+  tideNote: {
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  seaDays: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  seaDay: {
+    flex: 1,
+    gap: 2,
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Spacing.two,
+    backgroundColor: 'rgba(127, 127, 127, 0.12)',
   },
 });

@@ -78,3 +78,41 @@ export function formatRange(
 
   return `${format(min)}–${format(max)} ${unit}`;
 }
+
+/**
+ * Douglas sea-state scale, reduced to the five bands the app labels.
+ * Based on the significant wave height of the total sea (IPMA's `totalSea`).
+ */
+export function seaStateFor(height: number | null): 0 | 1 | 2 | 3 | 4 | null {
+  if (height === null || !Number.isFinite(height)) {
+    return null;
+  }
+
+  if (height < 0.1) {
+    return 0;
+  }
+  if (height < 0.5) {
+    return 1;
+  }
+  if (height < 1.25) {
+    return 2;
+  }
+  if (height < 2.5) {
+    return 3;
+  }
+
+  return 4;
+}
+
+/** The next `count` days of the zone, starting at `date`. */
+export function seaDaysFrom(
+  bundle: SeaBundle | null,
+  zoneId: number,
+  date: string,
+  count = 3
+): SeaForecastDay[] {
+  const days = bundle?.daysByZone[zoneId] ?? [];
+  const start = days.findIndex((day) => day.date === date);
+
+  return start === -1 ? days.slice(0, count) : days.slice(start, start + count);
+}

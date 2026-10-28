@@ -13,6 +13,8 @@ export const storageKeys = {
   /** Bulk hazard files are cached per calendar day. */
   fireRisk: (date: string) => `${PREFIX}:fire-risk:v1:${date}`,
   sea: (date: string) => `${PREFIX}:sea:v1:${date}`,
+  /** v1: Open-Meteo marine model, per sea zone and selected day. */
+  marine: (zoneId: number, date: string) => `${PREFIX}:marine:v1:${zoneId}:${date}`,
 };
 
 /**
