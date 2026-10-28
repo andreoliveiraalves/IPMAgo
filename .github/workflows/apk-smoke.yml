@@ -58,7 +58,11 @@ jobs:
             adb shell pidof com.ipmago.app > pid.txt 2>&1 || true
             adb logcat -d -v brief > logcat.txt
             cat pid.txt
-            grep -E "FATAL EXCEPTION|AndroidRuntime|ReactNativeJS|AndroidRuntime" logcat.txt | head -150 || true
+            grep -E "FATAL EXCEPTION|AndroidRuntime|ReactNativeJS" logcat.txt | head -150 || true
+            # The process must still be alive: an empty pid.txt means it crashed
+            # on start (that is how the v1.0.3 WorkManager/R8 crash was found).
+            test -s pid.txt
+            ! grep -q "FATAL EXCEPTION" logcat.txt
 
       - name: Upload logcat
         if: always()
