@@ -2,7 +2,7 @@
   "expo": {
     "name": "IPMAgo",
     "slug": "IPMAgo",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ipmago",
@@ -46,7 +46,8 @@
               "arm64-v8a"
             ],
             "enableMinifyInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "# react-native-android-widget schedules its background refresh through\n# WorkManager, which builds its Room database by reflection:\n# Room.databaseBuilder(ctx, WorkDatabase.class, ...) resolves\n# `androidx.work.impl.WorkDatabase_Impl` with Class.forName at runtime.\n# R8 cannot see that reference, so without these keeps the generated impl\n# is stripped and the process dies inside\n# androidx.startup.InitializationProvider -> WorkManagerInitializer.\n-keep class androidx.work.impl.WorkDatabase_Impl { *; }\n-keep class * extends androidx.room.RoomDatabase { <init>(); }\n-keepclassmembers class * extends androidx.room.RoomDatabase { <init>(); }\n-keep class * extends androidx.room.RoomDatabase { *; }\n-dontwarn androidx.room.paging.**\n"
           }
         }
       ],
