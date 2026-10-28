@@ -11,6 +11,11 @@ type FavoritesValue = {
   add: (globalIdLocal: number) => void;
   remove: (globalIdLocal: number) => void;
   toggle: (globalIdLocal: number) => void;
+  /**
+   * Moves a favorite to the front of the list. The first favorite is what the
+   * home-screen widget follows, so this is the user-facing way to choose it.
+   */
+  moveToTop: (globalIdLocal: number) => void;
 };
 
 const FavoritesContext = createContext<FavoritesValue | null>(null);
@@ -54,6 +59,14 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     setIds((current) => current.filter((id) => id !== globalIdLocal));
   }, []);
 
+  const moveToTop = useCallback((globalIdLocal: number) => {
+    setIds((current) =>
+      current[0] === globalIdLocal
+        ? current
+        : [globalIdLocal, ...current.filter((id) => id !== globalIdLocal)]
+    );
+  }, []);
+
   const toggle = useCallback((globalIdLocal: number) => {
     setIds((current) =>
       current.includes(globalIdLocal)
@@ -70,8 +83,9 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
       add,
       remove,
       toggle,
+      moveToTop,
     }),
-    [ids, ready, add, remove, toggle]
+    [ids, ready, add, remove, toggle, moveToTop]
   );
 
   return <FavoritesContext.Provider value={value}>{children}</FavoritesContext.Provider>;

@@ -13,6 +13,12 @@ const WEEKDAYS: Record<Language, string[]> = {
   en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
 };
 
+/** Compact labels for tight strips (the home-screen widget). */
+const WEEKDAYS_SHORT: Record<Language, string[]> = {
+  pt: ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'],
+  en: ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
+};
+
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})/;
 
 /**
@@ -79,6 +85,15 @@ export function formatShortDate(isoDate: string): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
 
   return `${day}/${month}`;
+}
+
+export function formatWeekdayShort(isoDate: string, language: Language): string {
+  const date = parseIsoDate(isoDate);
+  if (!date) {
+    return isoDate;
+  }
+
+  return WEEKDAYS_SHORT[language][date.getDay()];
 }
 
 export type DataAge = { unit: 'now' } | { unit: 'minutes' | 'hours'; value: number };

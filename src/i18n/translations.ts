@@ -16,8 +16,8 @@ const pt = {
 
   addFavorite: 'Adicionar aos favoritos',
   removeFavorite: 'Remover dos favoritos',
-  removeTitle: 'Remover localização',
-  removeMessage: 'Remover {name} dos favoritos?',
+  moveToTop: 'Mover para o topo',
+  widgetLocation: 'No widget',
   cancel: 'Cancelar',
   remove: 'Remover',
 
@@ -48,6 +48,10 @@ const pt = {
   updatedMinutes: 'Atualizado há {count} min',
   updatedHours: 'Atualizado há {count} h',
   offlineCache: 'Sem ligação — a mostrar os últimos dados guardados.',
+  now: 'agora',
+
+  widgetEmptyTitle: 'Escolha um favorito',
+  widgetEmptyHint: 'O widget mostra a previsão do primeiro favorito.',
 
   dayDetails: 'Detalhes do dia',
   close: 'Fechar',
@@ -116,8 +120,8 @@ const en: Record<TranslationKey, string> = {
 
   addFavorite: 'Add to favorites',
   removeFavorite: 'Remove from favorites',
-  removeTitle: 'Remove location',
-  removeMessage: 'Remove {name} from favorites?',
+  moveToTop: 'Move to top',
+  widgetLocation: 'On the widget',
   cancel: 'Cancel',
   remove: 'Remove',
 
@@ -148,6 +152,10 @@ const en: Record<TranslationKey, string> = {
   updatedMinutes: 'Updated {count} min ago',
   updatedHours: 'Updated {count} h ago',
   offlineCache: 'Offline — showing the last saved data.',
+  now: 'now',
+
+  widgetEmptyTitle: 'Pick a favorite',
+  widgetEmptyHint: 'The widget shows the forecast for your first favorite.',
 
   dayDetails: 'Day details',
   close: 'Close',

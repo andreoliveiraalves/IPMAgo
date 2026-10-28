@@ -32,7 +32,7 @@ export default function FavoritesScreen() {
   const router = useRouter();
   const theme = useTheme();
   const { t } = useI18n();
-  const { ids, ready, remove } = useFavorites();
+  const { ids, ready, remove, moveToTop } = useFavorites();
   const { locations, isLoading: locationsLoading } = useLocations();
   const { status, match, requestPermission } = useNearestLocation(locations);
 
@@ -80,12 +80,20 @@ export default function FavoritesScreen() {
     router.push({ pathname: '/location/[id]', params: { id: String(globalIdLocal), name } });
   };
 
-  const confirmRemove = (location: IpmaLocation) => {
-    Alert.alert(t('removeTitle'), t('removeMessage', { name: location.local }), [
-      { text: t('cancel'), style: 'cancel' },
+  const showFavoriteActions = (location: IpmaLocation, isFirst: boolean) => {
+    Alert.alert(location.local, undefined, [
+      ...(isFirst
+        ? []
+        : [
+            {
+              text: t('moveToTop'),
+              onPress: () => moveToTop(location.globalIdLocal),
+            },
+          ]),
+      { text: t('cancel'), style: 'cancel' as const },
       {
         text: t('remove'),
-        style: 'destructive',
+        style: 'destructive' as const,
         onPress: () => remove(location.globalIdLocal),
       },
     ]);
@@ -183,13 +191,14 @@ export default function FavoritesScreen() {
 
               {favorites.length > 0 ? (
                 <View style={styles.list}>
-                  {favorites.map((location) => (
+                  {favorites.map((location, index) => (
                     <LocationCard
                       key={location.globalIdLocal}
                       location={location}
                       entry={entries[location.globalIdLocal] ?? EMPTY_ENTRY}
+                      badge={index === 0 ? t('widgetLocation') : undefined}
                       onPress={() => openLocation(location.globalIdLocal, location.local)}
-                      onLongPress={() => confirmRemove(location)}
+                      onLongPress={() => showFavoriteActions(location, index === 0)}
                     />
                   ))}
                 </View>

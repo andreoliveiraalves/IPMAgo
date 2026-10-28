@@ -2,7 +2,7 @@
   "expo": {
     "name": "IPMAgo",
     "slug": "IPMAgo",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ipmago",
@@ -42,10 +42,37 @@
         "expo-build-properties",
         {
           "android": {
-            "buildArchs": ["arm64-v8a"],
+            "buildArchs": [
+              "arm64-v8a"
+            ],
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true
           }
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "fonts": [
+            "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf"
+          ],
+          "widgets": [
+            {
+              "name": "IpmaGoForecast",
+              "label": "IPMAgo · 5 dias",
+              "description": "Previsão de 5 dias da localização no topo dos favoritos.",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "maxResizeWidth": "400dp",
+              "maxResizeHeight": "400dp",
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000,
+              "widgetCategory": "home_screen",
+              "previewImage": "./assets/images/widget-preview.png"
+            }
+          ]
         }
       ]
     ],

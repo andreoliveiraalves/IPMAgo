@@ -15,11 +15,12 @@ type Props = {
   location: IpmaLocation;
   entry: ForecastEntry;
   distanceKm?: number;
+  badge?: string;
   onPress?: () => void;
   onLongPress?: () => void;
 };
 
-export function LocationCard({ location, entry, distanceKm, onPress, onLongPress }: Props) {
+export function LocationCard({ location, entry, distanceKm, badge, onPress, onLongPress }: Props) {
   const theme = useTheme();
   const { t } = useI18n();
   const { weatherLabel, windLabel } = useReferenceData();
@@ -45,6 +46,11 @@ export function LocationCard({ location, entry, distanceKm, onPress, onLongPress
             <ThemedText type="smallBold" numberOfLines={1}>
               {location.local}
             </ThemedText>
+            {badge ? (
+              <ThemedText type="small" themeColor="accent" numberOfLines={1}>
+                {badge}
+              </ThemedText>
+            ) : null}
             {distanceKm !== undefined ? (
               <ThemedText type="small" themeColor="textSecondary">
                 {t('distanceAway', { km: distanceKm.toFixed(1) })}
