@@ -1,3 +1,10 @@
+/**
+ * The widget runtime executes components directly (`type(props)`), so React
+ * Compiler memoization would inject hook calls into a context that has none.
+ * `"use no memo"` opts this file out; do not remove it.
+ */
+'use no memo';
+
 import type { ReactNode } from 'react';
 import type { WidgetInfo, WidgetRepresentation } from 'react-native-android-widget';
 import { FlexWidget, IconWidget, TextWidget } from 'react-native-android-widget';
