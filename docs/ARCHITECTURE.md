@@ -377,6 +377,9 @@ Rules:
   maps are naturally ignored.
 - The `vN` suffixes are schema versions. **Bump them when the cached shape changes**;
   otherwise old JSON will be parsed as the new type.
+- The home-screen widget reads `favorites`, `locations`, `forecast`, `reference` and
+  `language` directly (section 16). Anything that changes those shapes affects the widget
+  too.
 
 ---
 
@@ -391,6 +394,7 @@ Rules:
 | `useMarine(zone, date)` | `use-marine.ts` | Open-Meteo tide/swell/current model per zone and day, silent on failure |
 | `useNearestLocation` | `use-nearest-location.ts` | GPS permission + nearest IPMA location match |
 | `useBlurOnRouteChange` | `use-blur-on-route-change.ts` | Web-only focus cleanup (see section 13) |
+| `useWidgetSync` | `use-widget-sync.ts` / `.web.ts` | Push favorite/language changes into the widget (no-op off Android) |
 | `useColorScheme` | `use-color-scheme.ts` / `.web.ts` | Hydration-safe color scheme on web |
 | `useTheme` | `use-theme.ts` | `Colors[light|dark]` |
 
@@ -597,6 +601,8 @@ Metro resolves `.web.tsx`/`.web.ts` before the generic file on web:
 | `components/app-tabs.tsx` | `app-tabs.web.tsx` | NativeTabs vs. custom `expo-router/ui` tabs |
 | `components/animated-icon.tsx` | `animated-icon.web.tsx` | Native splash animation vs. `null` overlay |
 | `hooks/use-color-scheme.ts` | `use-color-scheme.web.ts` | RN scheme vs. hydration-safe scheme |
+| `widgets/register.ts` | `widgets/register.web.ts` | Widget task handler vs. an empty stub |
+| `hooks/use-widget-sync.ts` | `use-widget-sync.web.ts` | Widget push vs. a no-op |
 
 Rules:
 
@@ -713,9 +719,77 @@ day readable at once.
 - `react-native-svg` is an Expo-supported module included in Expo Go. A custom Android dev
   build created before this dependency was added must be rebuilt.
 
+### 15.6 Widget code must stay out of the web bundle
+
+`index.js` (the app entry) imports `src/widgets/register`, which resolves to the
+empty `register.web.ts` on web. The widget tree itself (`ipma-widget.tsx`) renders
+`react-native-android-widget` primitives, so it must never be imported from a
+screen or the root layout — only from `widgets/register.ts` and the native-only
+`useWidgetSync`. Breaking this shows up as an SSR failure, not a runtime warning.
+
 ---
 
-## 16. Android release workflow
+## 16. Home-screen widget (Android)
+
+Built with `react-native-android-widget`. The widget is opt-in: users add
+**IPMAgo · 5 dias** from the launcher's widget picker.
+
+### What it shows
+
+- The **first favorite**. Long-pressing a favorite in the list offers "Mover para o
+  topo", and the first card carries the `No widget` badge, so this is the only
+  ordering concept users need.
+- Today plus the next four days (same window as the app's leading day), with the
+  condition icon, max/min and rain probability.
+- Size-adaptive layout driven by the reported widget height: below 200 dp a 4x2
+  strip, above it a 4x4 list with a freshness footer. Android offers no separate
+  widget sizes here — one widget resizes.
+- Taps deep link into `ipmago://location/<id>`, and each day into
+  `ipmago://location/<id>/day/<date>`.
+
+### Data path
+
+[`src/widgets/snapshot.ts`](../src/widgets/snapshot.ts) reads the same caches the
+app writes (`favorites`, `locations`, `forecast`, `reference`, `language`) and
+returns a `WidgetSnapshot`. It never uses hooks or providers: periodic updates run
+through Android's headless JS task, which boots the bundle with no UI and a **30 s
+budget**.
+
+Rules:
+
+- Cache first, network second. Revalidate at most once an hour; if the request
+  fails, render the cached bundle. Never render an error card.
+- The widget shows *today's* max/min and, when IPMA publishes hourly data, the
+  temperature of the nearest hour as "agora 21°".
+- Weather labels come from the cached reference data, so the widget follows the
+  app language without a network round trip.
+
+### Update paths
+
+| Trigger | Mechanism |
+| --- | --- |
+| Every 30 min | `updatePeriodMillis` (Android minimum) → `WIDGET_ADDED/UPDATE/RESIZED` task |
+| Favorite order or language change | `useWidgetSync` → `requestWidgetUpdate` |
+| App returns to foreground | `AppState` listener in `useWidgetSync` |
+| First placement / resize | Same task handler, with the new `WidgetInfo` |
+
+`useWidgetSync` is a no-op on web and iOS. The task handler is registered from
+[`index.js`](../index.js) (the app entry) *before* `expo-router/entry`, because a
+headless start never renders a route.
+
+### Build requirements
+
+- `app.json` configures the widget (`IpmaGoForecast`): 4x2 target cells, resize
+  up to 400 dp, `updatePeriodMillis: 1800000`, preview image, and the bundled
+  `MaterialCommunityIcons.ttf` so the widget reuses `src/lib/weather.ts`.
+- The native module means **Expo Go can no longer run the app**: use
+  `npx expo run:android` or an APK from CI.
+- `npx expo prebuild -p android` generates the receiver, provider XML, preview
+  drawable and font asset; nothing native is committed.
+
+---
+
+## 17. Android release workflow
 
 The workflow is [`.github/workflows/android-apk.yml`](../.github/workflows/android-apk.yml).
 
@@ -755,7 +829,7 @@ Notes:
 
 ---
 
-## 17. Conventions and extension guides
+## 18. Conventions and extension guides
 
 ### Adding a screen
 
@@ -798,7 +872,7 @@ Expo Go only includes its bundled modules.
 
 ---
 
-## 18. Known limitations and gotchas
+## 19. Known limitations and gotchas
 
 - **`public-data` is undocumented.** It can change without notice. The fallback keeps the app
   usable for 35 locations but loses hourly data/UV.
@@ -824,13 +898,14 @@ Expo Go only includes its bundled modules.
 
 ---
 
-## 19. File map (quick reference)
+## 20. File map (quick reference)
 
 ```
 AGENTS.md                          agent instructions + project context
 README.md                          user-facing overview, endpoints, releases
 docs/ARCHITECTURE.md               this document
 app.json                           Expo config (name, scheme, icons, web output, plugins)
+index.js                           app entry: widget registration + expo-router/entry
 package.json                       dependencies and scripts
 .github/workflows/android-apk.yml  CI APK build/release
 
@@ -855,6 +930,7 @@ src/hooks/use-nearest-location.ts  GPS + nearest match
 src/hooks/use-blur-on-route-change.ts  web a11y focus cleanup
 src/hooks/use-color-scheme*.ts     hydration-safe scheme (web)
 src/hooks/use-theme.ts             semantic palette accessor
+src/hooks/use-widget-sync.ts       widget push on favorite/language/foreground (web no-op)
 
 src/lib/dates.ts                   local-date parsing/formatting, age
 src/lib/forecast.ts                day selection, hourly grouping, formatting
@@ -868,6 +944,11 @@ src/lib/districts.ts               district names PT/EN
 
 src/state/favorites.tsx            persisted favorites context
 src/state/reference-data.tsx       weather/wind label context
+src/widgets/snapshot.ts            React-free snapshot: cache-first data for the widget
+src/widgets/ipma-widget.tsx        4x2 / 4x4 widget tree + deep-link clicks
+src/widgets/render.ts              snapshot -> widget representation
+src/widgets/register.ts            widget task handler (headless JS)
+
 src/storage/storage.ts             AsyncStorage JSON helpers, versioned keys
 src/i18n/index.tsx                 language provider + interpolation
 src/i18n/translations.ts           PT/EN dictionaries, TranslationKey
@@ -878,7 +959,7 @@ src/components/*                   themed primitives, cards, icons, tabs, splash
 
 ---
 
-## 20. Recent fixes (context for future changes)
+## 21. Recent fixes (context for future changes)
 
 These changes are in the working tree on top of `988afa6` (Azulejo branding):
 

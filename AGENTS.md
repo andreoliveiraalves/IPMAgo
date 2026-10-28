@@ -13,6 +13,7 @@ Key invariants:
 - **Data access goes through hooks** (`useLocations`, `useForecastList`, `useHazards`, `useMarine`, `useNearestLocation`). Screens do not fetch or read AsyncStorage directly. Cache keys/TTLs live in `src/storage/storage.ts`; bump `vN` when a cached shape changes.
 - **Sun times are computed, tides are a model.** IPMA publishes neither. `src/lib/sun.ts` (NOAA algorithm) supplies sunrise/sunset offline; `useMarine` adds tides, swell, wind sea and current from Open-Meteo Marine (labels must credit Copernicus Marine / Open-Meteo, and the sea card must degrade silently to IPMA-only data when it fails).
 - **Do not render empty/error states before loading settles.** `useForecastList` reports requested ids as loading until their first cache/network result; use `LoadingOverlay` when the payload is missing, and render `EmptyState` only when `!isLoading`.
+- **The Android widget is a separate runtime.** `src/widgets/snapshot.ts` must stay free of React/hooks (it runs in a headless 30 s task): read caches first, revalidate at most hourly, and degrade to cached data instead of an error card. The widget follows `favorites[0]`; `moveToTop` is how users choose it. Import the widget only from `index.js`/`register.ts` and the native-only `useWidgetSync` — `register.web.ts` keeps it out of the SSR bundle. It needs a dev build/APK (Expo Go cannot load it), and `clickAction` deep links use `ipmago://location/<id>`.
 - **IPMA data is stringly typed.** `public-data` is primary and undocumented; `open-data` is the fallback. Normalize numbers and the `-99` sentinel in `src/api/ipma/`. `dataPrev`/`dataUpdate` are naive UTC — append `Z` before parsing.
 - **Palette is the template/Apple set** (`#007AFF` etc.), restored from commit `2e2e456`. Do not reintroduce the Azulejo runtime tokens from `988afa6`; native icon/splash assets still use navy.
 - No `bun.lock` — use `npm` / `npx`. Validate with `npm run typecheck && npm run lint`; use `npm run web` for browser checks.
@@ -32,6 +33,7 @@ Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
 ```bash
 npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — resolves SDK-compatible versions
 npx expo start              # start the dev server
+npx expo run:android        # dev build (required for the widget's native module)
 npx expo lint               # lint
 npx tsc --noEmit            # typecheck
 npx expo-doctor             # diagnose dependency and config issues

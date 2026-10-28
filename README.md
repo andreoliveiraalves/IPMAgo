@@ -13,7 +13,8 @@ Android weather app built with Expo + React Native, using the free [IPMA](https:
 - **Day details**: tap any day to open a sheet with an interactive hourly temperature chart (with sunrise/sunset markers), UV index, humidity, feels-like temperature, max wind, **rural fire risk** and **sea state**.
 - **Fire risk** for mainland municipalities (next 3 days, from IPMA's municipal risk maps).
 - **Sea state** for the nearest coastal zone when the selected place is within ~35 km of the coast: wave height, total sea, Douglas state, direction, period and water temperature (next 3 days), plus a 24 h tide curve with high/low times, swell, wind sea and current.
-- **Favorites**: add/remove locations from the search list, the star on the detail screen, or long-press a card on the home screen.
+- **Home-screen widget** (Android): today plus the next 5 days for the location at the top of your favorites, in a 4x2 strip or a 4x4 list. It refreshes every 30 minutes, when the app is opened, and whenever you move a favorite to the top; tapping opens the location (or that day's sheet).
+- **Favorites**: add/remove locations from the search list, the star on the detail screen, or long-press a card on the home screen. Long-pressing also offers **Mover para o topo**, which picks the widget's location.
 - **Current location**: optional GPS permission; the app matches your position to the nearest IPMA location and shows its forecast.
 - **Offline-friendly**: forecasts, the location list, hazard maps, weather-type labels and settings are cached on disk. Cached data is rendered instantly, then refreshed in the background (stale-while-revalidate, 10 min TTL to avoid redundant requests). Old data is never deleted just because it is old.
 - **Portuguese / English** switch, persisted between launches.
@@ -32,8 +33,12 @@ Weather labels and wind-class descriptions come from IPMA's own reference files,
 2. Start the app
 
    ```bash
-   npx expo start
+   npx expo start          # web + JS-only development
+   npx expo run:android    # required for the widget: it ships a native module
    ```
+
+   The home-screen widget needs a development build or an APK; Expo Go cannot load
+   `react-native-android-widget`.
 
 Useful checks:
 
@@ -106,10 +111,13 @@ src/
     location/[id]/index.tsx     # 10-day detail
     location/[id]/day/[date].tsx # day detail sheet (hourly, fire, sea)
   api/ipma/                     # HTTP client, raw types, normalization
+  api/marine/                   # Open-Meteo Marine (tides, swell, current)
   components/                   # UI building blocks
+  widgets/                      # Android home-screen widget (snapshot, tree, task handler)
   hooks/                        # locations, forecast cache, hazards, GPS
   i18n/                         # pt-PT / en dictionaries + provider
   lib/                          # dates, geo, forecast, districts, fire/sea helpers
   state/                        # favorites + IPMA reference data providers
   storage/                      # AsyncStorage JSON helpers and keys
+index.js                        # app entry: widget task handler + expo-router
 ```
