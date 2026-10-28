@@ -51,20 +51,21 @@ jobs:
           target: google_apis
           disable-animations: true
           script: |
-            set -x
-            APK=android/app/build/outputs/apk/release/app-release.apk
-            adb install -r "$APK"
+            adb install -r android/app/build/outputs/apk/release/app-release.apk
             adb logcat -c
-            adb shell am start -W -n com.ipmago.app/.MainActivity || true
-            sleep 12
-            adb shell pidof com.ipmago.app || echo "APP_NOT_RUNNING"
+            adb shell am start -W -n com.ipmago.app/.MainActivity
+            sleep 15
+            adb shell pidof com.ipmago.app > pid.txt 2>&1 || true
             adb logcat -d -v brief > logcat.txt
-            grep -E "FATAL EXCEPTION|AndroidRuntime|ReactNativeJS" logcat.txt | head -120 || true
+            cat pid.txt
+            grep -E "FATAL EXCEPTION|AndroidRuntime|ReactNativeJS|AndroidRuntime" logcat.txt | head -150 || true
 
       - name: Upload logcat
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: logcat
-          path: logcat.txt
+          path: |
+            logcat.txt
+            pid.txt
           if-no-files-found: warn
