@@ -787,6 +787,38 @@ headless start never renders a route.
 - `npx expo prebuild -p android` generates the receiver, provider XML, preview
   drawable and font asset; nothing native is committed.
 
+### R8 vs. WorkManager (regression alert)
+
+Release builds enable `enableMinifyInReleaseBuilds` + `enableShrinkResourcesInReleaseBuilds`.
+The widget's periodic refresh is a WorkManager job, and **WorkManager builds its
+Room database by reflection**: `Room.databaseBuilder(context, WorkDatabase.class, …)`
+resolves `androidx.work.impl.WorkDatabase_Impl` with `Class.forName`, a reference R8
+cannot see. Without a keep rule the impl is stripped and the process dies *before
+any JS runs*:
+
+```
+FATAL EXCEPTION: main
+Unable to get provider androidx.startup.InitializationProvider:
+  Failed to create an instance of class androidx.work.impl.WorkDatabase…
+    at androidx.work.WorkManagerInitializer.create
+```
+
+This shipped as v1.0.3 and looked like an app that "just closes". The rules live in
+`app.json` → `expo-build-properties` → `android.extraProguardRules` (appended to
+`android/app/proguard-rules.pro` as a generated block):
+
+```
+-keep class androidx.work.impl.WorkDatabase_Impl { *; }
+-keep class * extends androidx.room.RoomDatabase { <init>(); }
+-keepclassmembers class * extends androidx.room.RoomDatabase { <init>(); }
+-keep class * extends androidx.room.RoomDatabase { *; }
+-dontwarn androidx.room.paging.**
+```
+
+Keep them if the widget library, WorkManager or R8 settings change, and re-run
+`.github/workflows/apk-smoke.yml` before tagging: it installs a release APK on an
+emulator and **fails** if the PID is gone or logcat contains `FATAL EXCEPTION`.
+
 ---
 
 ## 17. Android release workflow
@@ -826,6 +858,17 @@ Notes:
 - iOS is not configured; `ios/` and `android/` are generated (CNG) and ignored by git.
 - `expo prebuild` regenerates native projects from `app.json` + config plugins. Never edit
   `android/` or `ios/` by hand.
+
+### Smoke test before tagging
+
+[`.github/workflows/apk-smoke.yml`](../.github/workflows/apk-smoke.yml) builds a
+release APK with `-PreactNativeArchitectures=x86_64,arm64-v8a`, installs it on an
+API 34 emulator, launches `MainActivity`, and uploads `logcat.txt` + `pid.txt`.
+It **fails** when the process is gone or logcat has a `FATAL EXCEPTION` (the earlier
+`grep … || true` let the v1.0.3 crash pass). Run it manually
+(`gh workflow run apk-smoke.yml`) after touching R8/minify settings, native
+dependencies or the widget, then tag. A green artifact is never a substitute for a
+real phone: the emulator uses x86_64 and cannot exercise the arm64-only APK.
 
 ---
 
