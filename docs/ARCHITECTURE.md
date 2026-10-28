@@ -95,6 +95,7 @@ src/app/                 Expo Router routes (screens + layouts)
   location/[id]/...      forecast detail + day detail modal
 
 src/api/ipma/            HTTP client, raw wire types, normalization, fallbacks
+src/api/marine/          Open-Meteo Marine client (tides, swell, wind sea, current)
 src/hooks/               data loading + cache orchestration
 src/lib/                 pure domain logic (dates, geo, forecast, fire, sea, maps)
 src/state/               React contexts (favorites, reference data)
@@ -108,9 +109,9 @@ Data flows in one direction:
 
 ```
 screen
-  -> hook (useForecastList / useHazards / useLocations / useNearestLocation)
+  -> hook (useForecastList / useHazards / useMarine / useLocations / useNearestLocation)
      -> storage cache (instant render, stale-while-revalidate)
-     -> api/ipma (fetch + normalize + fallback)
+     -> api/ipma + api/marine (fetch + normalize + fallback)
         -> lib/* (formatting, calculations)
 ```
 
@@ -320,6 +321,26 @@ wave heights are not finite or the envelope has no `forecastDate`. Missing
 `totalSeaMin/Max` fall back to the wave height; missing periods/temperatures stay `null`.
 Partial day failures are tolerated.
 
+The day sheet turns `totalSeaMax` into a Douglas sea-state band
+(`seaStateFor()` in [`lib/sea.ts`](../src/lib/sea.ts)) and shows the following three days
+from `seaDaysFrom()`. IPMA only publishes three sea days, so later day sheets have no IPMA
+sea block.
+
+**Tides and marine extras (Open-Meteo).** IPMA has no tide endpoint (the Hydrographic
+Institute's API needs a key), so `src/api/marine/` requests
+`https://marine-api.open-meteo.com/v1/marine` with `timezone=UTC` for
+`sea_level_height_msl`, `swell_wave_*`, `wind_wave_*` and `ocean_current_*`.
+`useMarine(zoneId, latitude, longitude, date)` caches each zone/day for 3 h under
+`ipmago:marine:v1:{zoneId}:{date}` and fetches one day on each side of the selection so the
+curve and its extremes are never cut short. It **fails silently**: the card falls back to
+IPMA-only data instead of surfacing an error.
+
+`src/lib/tide.ts` detects high/low tides from the hourly samples and refines each turning
+point with a parabolic fit through its neighbours, which recovers sub-hour times.
+`TideChart` draws the 24 h curve with the extremes labelled by time only — the model heights
+use a mean-sea-level datum and are not comparable to the official tables. The card credits
+"Copernicus Marine / Open-Meteo" and marks the tide as a model, not navigation data.
+
 ### 7.8 Reference data
 
 `fetchReferenceData` merges the two documented reference files into lookup maps keyed by
@@ -342,6 +363,7 @@ with `ipmago:`.
 | `ipmago:forecast:v3:{id}` | `ForecastBundle` | `useForecastList` | 10 min stale window |
 | `ipmago:fire-risk:v1:{date}` | `FireRiskBundle` | `useHazards` | 1 h, keyed per local date |
 | `ipmago:sea:v1:{date}` | `SeaBundle` | `useHazards` | 1 h, keyed per local date |
+| `ipmago:marine:v1:{zoneId}:{date}` | `MarineBundle` | `useMarine` | 3 h, keyed per zone and day |
 
 Rules:
 
@@ -366,6 +388,7 @@ Rules:
 | `useForecastList(ids)` | `use-forecast-list.ts` | Per-id forecast cache + fetch, shared by home/detail |
 | `useForecast(id)` | `use-forecast.ts` | Thin single-id wrapper returning `EMPTY_ENTRY` when null |
 | `useHazards` | `use-hazards.ts` | Bulk fire risk + sea state, shared by day sheets |
+| `useMarine(zone, date)` | `use-marine.ts` | Open-Meteo tide/swell/current model per zone and day, silent on failure |
 | `useNearestLocation` | `use-nearest-location.ts` | GPS permission + nearest IPMA location match |
 | `useBlurOnRouteChange` | `use-blur-on-route-change.ts` | Web-only focus cleanup (see section 13) |
 | `useColorScheme` | `use-color-scheme.ts` / `.web.ts` | Hydration-safe color scheme on web |
@@ -546,7 +569,8 @@ Other exports:
 | `WeatherIcon` | Weather-type icon + tone color |
 | `LocationCard` | Home-screen card: name, optional distance, current-day weather/temps/rain/wind |
 | `ForecastDayRow` | Detail-screen row for one day: date, weather/wind, temps and a labelled rain-probability metric |
-| `HourlyChart` | Full-width SVG temperature curve with rain-probability bars, a draggable cursor and an hour/weather/rain readout |
+| `HourlyChart` | Full-width SVG temperature curve with rain-probability bars, a daylight strip with sunrise/sunset markers, a draggable cursor and an hour/weather/rain readout |
+| `TideChart` | 24 h sea-level curve with the high/low tide times from the Open-Meteo model |
 | `EmptyState` | Icon + title + description + optional action |
 | `LoadingOverlay` | Opaque full-screen spinner used while a screen has no cached payload |
 | `LanguageToggle` | PT/EN radio group |
@@ -670,6 +694,14 @@ day readable at once.
   temperature curve, scaled to 0–100% probability and capped at 55% of the plot height so
   they never overpower the curve. IPMA publishes the probability every 3 hours, so missing
   hours reuse the nearest published value (and `-99` stays `null`).
+- **Sun markers.** IPMA has no ephemeris endpoint, so `sunTimes()` in
+  [`lib/sun.ts`](../src/lib/sun.ts) computes sunrise/sunset locally from the NOAA algorithm
+  (no dependency, offline, works for all 423 places; polar day/night returns `null`). The
+  screen passes one `SunDay` per calendar day covered by the window (today's chart can cross
+  midnight). The chart paints a thin daylight strip above the plot and a dashed vertical line
+  with its time at each event; positions are interpolated *inside* the hour segment, so the
+  marker lands on 06:58 rather than snapping to 07:00. A caption under the chart repeats
+  `Nascer … · Pôr …` and the times also enter the chart's accessibility text.
 - **Vertical scrolling must keep working.** The chart only claims the responder once the
   gesture is clearly horizontal (`|dx| > 6 && |dx| > |dy| * 1.5`), so a vertical drag that
   starts on the chart still scrolls the page.
@@ -812,11 +844,13 @@ src/app/location/[id]/day/[date]   day modal: hours, metrics, fire, sea
 src/api/ipma/client.ts             requestJson, IpmaError, timeout
 src/api/ipma/types.ts              raw wire types + normalized models
 src/api/ipma/index.ts              fetch/parse/fallback for all resources
+src/api/marine/index.ts            Open-Meteo Marine fetch/normalize (UTC hours)
 
 src/hooks/use-locations.ts         cached location list
 src/hooks/use-forecast-list.ts     multi-id forecast cache
 src/hooks/use-forecast.ts          single-id wrapper
 src/hooks/use-hazards.ts           fire + sea cache
+src/hooks/use-marine.ts            tide/marine model cache (3 h, silent failure)
 src/hooks/use-nearest-location.ts  GPS + nearest match
 src/hooks/use-blur-on-route-change.ts  web a11y focus cleanup
 src/hooks/use-color-scheme*.ts     hydration-safe scheme (web)
@@ -826,7 +860,9 @@ src/lib/dates.ts                   local-date parsing/formatting, age
 src/lib/forecast.ts                day selection, hourly grouping, formatting
 src/lib/geo.ts                     haversine + nearest location
 src/lib/fire-risk.ts               DICO mapping, labels, colors
-src/lib/sea.ts                     nearest zone, day lookup, ranges
+src/lib/sea.ts                     nearest zone, day lookup, ranges, Douglas state
+src/lib/sun.ts                     sunrise/sunset (NOAA algorithm, offline)
+src/lib/tide.ts                    tide extremes (parabolic fit) and day series
 src/lib/weather.ts                 weather glyphs/tones, app icons, error helper
 src/lib/districts.ts               district names PT/EN
 

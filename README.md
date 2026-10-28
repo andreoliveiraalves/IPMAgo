@@ -10,9 +10,9 @@ Android weather app built with Expo + React Native, using the free [IPMA](https:
 ## Features
 
 - **Daily forecast** (10 days) for any of the **423** IPMA forecast locations, grouped by district/island.
-- **Day details**: tap any day to open a sheet with an interactive hourly temperature chart, UV index, humidity, feels-like temperature, max wind, **rural fire risk** and **sea state**.
+- **Day details**: tap any day to open a sheet with an interactive hourly temperature chart (with sunrise/sunset markers), UV index, humidity, feels-like temperature, max wind, **rural fire risk** and **sea state**.
 - **Fire risk** for mainland municipalities (next 3 days, from IPMA's municipal risk maps).
-- **Sea state** for the nearest coastal zone when the selected place is within ~35 km of the coast: wave height, direction, period and water temperature (next 3 days).
+- **Sea state** for the nearest coastal zone when the selected place is within ~35 km of the coast: wave height, total sea, Douglas state, direction, period and water temperature (next 3 days), plus a 24 h tide curve with high/low times, swell, wind sea and current.
 - **Favorites**: add/remove locations from the search list, the star on the detail screen, or long-press a card on the home screen.
 - **Current location**: optional GPS permission; the app matches your position to the nearest IPMA location and shows its forecast.
 - **Offline-friendly**: forecasts, the location list, hazard maps, weather-type labels and settings are cached on disk. Cached data is rendered instantly, then refreshed in the background (stale-while-revalidate, 10 min TTL to avoid redundant requests). Old data is never deleted just because it is old.
@@ -63,6 +63,11 @@ All requests go to `https://api.ipma.pt`. The app primarily uses the feed that p
 | `open-data/forecast/oceanography/daily/hp-daily-sea-forecast-day{0,1,2}.json` | Sea state (3 days) |
 | `open-data/weather-type-classe.json` | Weather-type labels (PT/EN) |
 | `open-data/wind-speed-daily-classe.json` | Wind-class labels (PT/EN) |
+
+Two things IPMA does not publish are covered elsewhere:
+
+- **Sunrise/sunset** are computed on-device from the NOAA solar algorithm (`src/lib/sun.ts`), so they work offline for all 423 locations.
+- **Tides, swell, wind sea and current** come from the free [Open-Meteo Marine API](https://open-meteo.com/en/docs/marine-weather-api) (Copernicus Marine model, no key). It is a global model: tide times can differ from the official Hydrographic Institute tables by about an hour, so the app labels them as a model and not for navigation. If the service fails, the sea card simply keeps the IPMA data.
 
 The APIs are public, need no key, and allow cross-origin requests. Note that IPMA serializes nearly every number as a string; normalization happens in `src/api/ipma`.
 
